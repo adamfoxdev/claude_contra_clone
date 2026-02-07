@@ -521,6 +521,210 @@
     #adminToggleBtn { bottom: auto; bottom: 140px; }
   }
   .kb-btn .kb-remove:hover { color: #ff4444; }
+
+  /* --- ACHIEVEMENT TOAST --- */
+  #achievementToast {
+    position: fixed;
+    top: -80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, rgba(20,10,40,0.97), rgba(40,20,60,0.97));
+    border: 2px solid #ffaa00;
+    border-radius: 8px;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 200;
+    transition: top 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 4px 25px rgba(255, 170, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+    min-width: 280px;
+    max-width: 420px;
+  }
+  #achievementToast.show { top: 16px; }
+  #achievementToast .toast-icon {
+    font-size: 28px;
+    filter: drop-shadow(0 0 6px rgba(255,200,0,0.6));
+    flex-shrink: 0;
+  }
+  #achievementToast .toast-body { display: flex; flex-direction: column; gap: 3px; }
+  #achievementToast .toast-label {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    color: #ffaa00;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+  #achievementToast .toast-name {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    color: #fff;
+    text-shadow: 0 0 8px rgba(255,255,255,0.4);
+  }
+  #achievementToast .toast-desc {
+    font-size: 9px;
+    color: #aaa;
+    font-family: 'Segoe UI', sans-serif;
+  }
+
+  /* --- ACHIEVEMENTS & LEADERBOARD PANELS --- */
+  #achievementsPanel, #leaderboardPanel {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.92);
+    z-index: 150;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    padding: 30px 20px;
+    overflow-y: auto;
+    color: #fff;
+  }
+  #achievementsPanel.open, #leaderboardPanel.open { display: flex; }
+
+  .panel-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 16px;
+    color: #ffaa00;
+    text-shadow: 0 0 15px rgba(255,170,0,0.5);
+    margin-bottom: 6px;
+  }
+  .panel-subtitle {
+    font-size: 10px;
+    color: #888;
+    margin-bottom: 20px;
+    font-family: 'Segoe UI', sans-serif;
+  }
+  .panel-close {
+    position: absolute;
+    top: 12px; right: 16px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    color: #888;
+    cursor: pointer;
+    transition: color 0.15s;
+    z-index: 2;
+  }
+  .panel-close:hover { color: #ff4444; }
+
+  .achievement-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 10px;
+    width: 100%;
+    max-width: 600px;
+  }
+  .ach-card {
+    background: rgba(30,20,50,0.8);
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .ach-card.unlocked {
+    border-color: #ffaa00;
+    background: rgba(60,40,10,0.5);
+  }
+  .ach-card.locked { opacity: 0.5; }
+  .ach-card .ach-icon { font-size: 24px; flex-shrink: 0; }
+  .ach-card.locked .ach-icon { filter: grayscale(1) brightness(0.5); }
+  .ach-card .ach-info { display: flex; flex-direction: column; gap: 3px; }
+  .ach-card .ach-name {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    color: #fff;
+  }
+  .ach-card.locked .ach-name { color: #666; }
+  .ach-card .ach-desc {
+    font-size: 9px;
+    color: #999;
+    font-family: 'Segoe UI', sans-serif;
+  }
+  .ach-card .ach-time {
+    font-size: 8px;
+    color: #666;
+    font-family: 'Segoe UI', sans-serif;
+    margin-top: 2px;
+  }
+  .ach-progress-bar {
+    width: 100%;
+    height: 4px;
+    background: #222;
+    border-radius: 2px;
+    margin-top: 4px;
+    overflow: hidden;
+  }
+  .ach-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ffaa00, #ffcc44);
+    border-radius: 2px;
+    transition: width 0.3s;
+  }
+
+  /* Leaderboard table */
+  .lb-table {
+    width: 100%;
+    max-width: 500px;
+    border-collapse: collapse;
+    margin-top: 10px;
+  }
+  .lb-table th {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    color: #ffaa00;
+    padding: 8px 6px;
+    border-bottom: 2px solid #ffaa00;
+    text-align: left;
+  }
+  .lb-table td {
+    font-family: 'Segoe UI', sans-serif;
+    font-size: 11px;
+    padding: 7px 6px;
+    border-bottom: 1px solid #222;
+    color: #ccc;
+  }
+  .lb-table tr.highlight td {
+    color: #ffcc00;
+    font-weight: bold;
+    background: rgba(255,170,0,0.08);
+  }
+  .lb-table .lb-rank { width: 40px; text-align: center; }
+  .lb-table .lb-rank-gold { color: #ffd700; }
+  .lb-table .lb-rank-silver { color: #c0c0c0; }
+  .lb-table .lb-rank-bronze { color: #cd7f32; }
+  .lb-empty {
+    text-align: center;
+    color: #555;
+    font-size: 10px;
+    padding: 30px;
+    font-family: 'Segoe UI', sans-serif;
+  }
+  .lb-clear-btn {
+    margin-top: 16px;
+    padding: 6px 16px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    background: rgba(80,20,20,0.6);
+    color: #ff6666;
+    border: 1px solid #ff4444;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .lb-clear-btn:hover { background: rgba(120,30,30,0.8); }
+
+  /* HUD achievement counter */
+  .ach-hud-btn {
+    cursor: pointer;
+    pointer-events: auto;
+    color: #ffaa00;
+    transition: color 0.15s;
+  }
+  .ach-hud-btn:hover { color: #ffdd44; }
 </style>
 </head>
 <body>
@@ -542,6 +746,8 @@
       <span class="zoom-display" id="zoomDisplay">🔍100%</span>
       <span class="zoom-display" id="depthDisplay" style="color:#ccaa44"></span>
       <span class="zoom-display" id="grappleDisplay" style="color:#88ccff"></span>
+      <span class="zoom-display ach-hud-btn" id="achHudBtn" title="Achievements (Tab)">🏆 0/0</span>
+      <span class="zoom-display ach-hud-btn" id="lbHudBtn" title="Leaderboard (L)" style="color:#44ddff;">📊</span>
     </div>
   </div>
 
@@ -583,6 +789,10 @@
     <div class="subtitle">A CLASSIC SIDE-SCROLLING SHOOTER</div>
     <div class="blink">— PRESS ENTER TO START —</div>
     <button id="startBtn">START GAME</button>
+    <div style="display:flex; gap:12px; margin-top:8px;">
+      <button onclick="toggleAchievementsPanel()" style="padding:6px 14px; font-family:'Press Start 2P',monospace; font-size:8px; background:rgba(60,40,10,0.7); color:#ffaa00; border:1px solid #ffaa00; border-radius:4px; cursor:pointer;">🏆 ACHIEVEMENTS</button>
+      <button onclick="toggleLeaderboardPanel()" style="padding:6px 14px; font-family:'Press Start 2P',monospace; font-size:8px; background:rgba(10,40,60,0.7); color:#44ddff; border:1px solid #44ddff; border-radius:4px; cursor:pointer;">📊 LEADERBOARD</button>
+    </div>
     <div class="controls-info">
       ARROWS / WASD — MOVE &amp; AIM<br>
       SPACE / Z — SHOOT<br>
@@ -593,6 +803,33 @@
       +/- — ZOOM<br>
     </div>
   </div>
+</div>
+
+<!-- ACHIEVEMENT TOAST -->
+<div id="achievementToast">
+  <span class="toast-icon" id="toastIcon">🏆</span>
+  <div class="toast-body">
+    <span class="toast-label">ACHIEVEMENT UNLOCKED</span>
+    <span class="toast-name" id="toastName"></span>
+    <span class="toast-desc" id="toastDesc"></span>
+  </div>
+</div>
+
+<!-- ACHIEVEMENTS PANEL -->
+<div id="achievementsPanel">
+  <span class="panel-close" onclick="toggleAchievementsPanel()">✕ ESC</span>
+  <div class="panel-title">🏆 ACHIEVEMENTS</div>
+  <div class="panel-subtitle" id="achCount">0 / 0 unlocked</div>
+  <div class="achievement-grid" id="achGrid"></div>
+</div>
+
+<!-- LEADERBOARD PANEL -->
+<div id="leaderboardPanel">
+  <span class="panel-close" onclick="toggleLeaderboardPanel()">✕ ESC</span>
+  <div class="panel-title">📊 LEADERBOARD</div>
+  <div class="panel-subtitle">Top scores on this device</div>
+  <div id="lbContent"></div>
+  <button class="lb-clear-btn" onclick="clearLeaderboard()">CLEAR ALL SCORES</button>
 </div>
 
 <!-- ADMIN TOGGLE BUTTON -->
@@ -628,6 +865,17 @@
       <div class="admin-row"><label>Show Hitboxes</label><input type="checkbox" id="s_showHitboxes"></div>
       <div class="admin-row"><label>Pause Game</label><input type="checkbox" id="s_paused"></div>
       <div class="admin-row"><label>Two-Player Co-op</label><input type="checkbox" id="s_coopMode"></div>
+    </div>
+  </div>
+
+  <!-- ACHIEVEMENTS/LEADERBOARD -->
+  <div class="admin-section collapsed">
+    <div class="admin-section-title" onclick="this.parentElement.classList.toggle('collapsed')">Achievements & Leaderboard</div>
+    <div class="admin-section-body">
+      <div class="admin-row"><label>Achievements</label><button onclick="toggleAchievementsPanel()" style="padding:3px 8px; font-size:10px; cursor:pointer; background:#332200; color:#ffaa00; border:1px solid #ffaa00; border-radius:3px;">🏆 VIEW</button></div>
+      <div class="admin-row"><label>Leaderboard</label><button onclick="toggleLeaderboardPanel()" style="padding:3px 8px; font-size:10px; cursor:pointer; background:#002233; color:#44ddff; border:1px solid #44ddff; border-radius:3px;">📊 VIEW</button></div>
+      <div class="admin-row"><label>Reset Achievements</label><button onclick="if(confirm('Reset all achievements?')){achievements={};saveAchievements();updateAchHud();}" style="padding:3px 8px; font-size:10px; cursor:pointer; background:#330000; color:#ff6666; border:1px solid #ff4444; border-radius:3px;">🗑️ RESET</button></div>
+      <div class="admin-row"><label>Clear Leaderboard</label><button onclick="clearLeaderboard()" style="padding:3px 8px; font-size:10px; cursor:pointer; background:#330000; color:#ff6666; border:1px solid #ff4444; border-radius:3px;">🗑️ CLEAR</button></div>
     </div>
   </div>
 
@@ -1104,6 +1352,330 @@ function initTouchControls() {
 let gameState = 'title'; // title, playing, gameover, victory
 let score = 0;
 let stage = 1;
+
+// ============================================================
+//  ACHIEVEMENT & LEADERBOARD SYSTEM
+// ============================================================
+
+// --- Run Stats (reset each game session) ---
+let runStats = {
+  kills: 0,
+  bossKills: 0,
+  deaths: 0,
+  weaponsCollected: new Set(),
+  treasuresFound: 0,
+  maxCombo: 0,
+  combo: 0,
+  comboTimer: 0,
+  shotsFired: 0,
+  grappleUses: 0,
+  noDeathRun: true,
+  stagesCleared: 0,
+  startTime: Date.now(),
+  damageDealt: 0,
+  stageDeaths: 0,
+};
+
+function resetRunStats() {
+  runStats = {
+    kills: 0,
+    bossKills: 0,
+    deaths: 0,
+    weaponsCollected: new Set(),
+    treasuresFound: 0,
+    maxCombo: 0,
+    combo: 0,
+    comboTimer: 0,
+    shotsFired: 0,
+    grappleUses: 0,
+    noDeathRun: true,
+    stagesCleared: 0,
+    startTime: Date.now(),
+    damageDealt: 0,
+    stageDeaths: 0,
+  };
+}
+
+// --- Achievement Definitions ---
+const ACHIEVEMENTS = [
+  // Combat
+  { id: 'first_blood',     name: 'First Blood',        icon: '🔫', desc: 'Kill your first enemy',                   check: () => runStats.kills >= 1 },
+  { id: 'killing_spree',   name: 'Killing Spree',      icon: '💀', desc: 'Kill 25 enemies in one run',              check: () => runStats.kills >= 25 },
+  { id: 'massacre',         name: 'Massacre',            icon: '☠️', desc: 'Kill 100 enemies in one run',             check: () => runStats.kills >= 100 },
+  { id: 'genocide',         name: 'One-Man Army',        icon: '🪖', desc: 'Kill 250 enemies in one run',             check: () => runStats.kills >= 250 },
+  { id: 'combo5',           name: 'Combo Starter',       icon: '🔥', desc: 'Get a 5-kill combo',                      check: () => runStats.maxCombo >= 5 },
+  { id: 'combo15',          name: 'Combo King',          icon: '👑', desc: 'Get a 15-kill combo',                     check: () => runStats.maxCombo >= 15 },
+
+  // Boss
+  { id: 'boss_slayer',      name: 'Boss Slayer',         icon: '🐉', desc: 'Defeat a boss',                           check: () => runStats.bossKills >= 1 },
+  { id: 'boss_master',      name: 'Boss Master',         icon: '⚔️', desc: 'Defeat 3 bosses in one run',             check: () => runStats.bossKills >= 3 },
+
+  // Progression
+  { id: 'stage2',           name: 'Moving On',           icon: '🚀', desc: 'Reach Stage 2',                           check: () => runStats.stagesCleared >= 1 },
+  { id: 'stage4',           name: 'Halfway There',       icon: '🏔️', desc: 'Reach Stage 4',                           check: () => runStats.stagesCleared >= 3 },
+  { id: 'victory',          name: 'Contra Force',        icon: '🏆', desc: 'Complete all 7 stages',                   check: () => runStats.stagesCleared >= 7 },
+
+  // Weapons
+  { id: 'arms_dealer',      name: 'Arms Dealer',         icon: '🎯', desc: 'Collect 3 different weapons in one run',  check: () => runStats.weaponsCollected.size >= 3 },
+  { id: 'arsenal',          name: 'Full Arsenal',        icon: '💎', desc: 'Collect all 7 weapon types in one run',   check: () => runStats.weaponsCollected.size >= 7 },
+
+  // Exploration
+  { id: 'treasure_hunter',  name: 'Treasure Hunter',     icon: '💰', desc: 'Find 10 treasures in one run',            check: () => runStats.treasuresFound >= 10 },
+  { id: 'treasure_master',  name: 'Treasure Master',     icon: '👸', desc: 'Find 30 treasures in one run',            check: () => runStats.treasuresFound >= 30 },
+
+  // Skill
+  { id: 'untouchable',      name: 'Untouchable',         icon: '✨', desc: 'Clear a stage without dying',             check: () => false },
+  { id: 'flawless',         name: 'Flawless Victory',    icon: '🌟', desc: 'Complete the game without dying',         check: () => false },
+  { id: 'grapple_master',   name: 'Grapple Master',      icon: '🪝', desc: 'Use the grapple hook 20 times in one run', check: () => runStats.grappleUses >= 20 },
+
+  // Score
+  { id: 'score10k',         name: 'Getting Rich',        icon: '💵', desc: 'Score 10,000 points',                     check: () => score >= 10000 },
+  { id: 'score50k',         name: 'High Roller',         icon: '💸', desc: 'Score 50,000 points',                     check: () => score >= 50000 },
+  { id: 'score100k',        name: 'Score Legend',         icon: '🤑', desc: 'Score 100,000 points',                    check: () => score >= 100000 },
+
+  // Speed
+  { id: 'speedrun3',        name: 'Speed Demon',         icon: '⚡', desc: 'Clear a stage in under 60 seconds',       check: () => false },
+];
+
+// --- Achievement State (persisted in localStorage) ---
+let achievements = {};
+
+function loadAchievements() {
+  try {
+    const data = localStorage.getItem('contraForce_achievements');
+    if (data) achievements = JSON.parse(data);
+  } catch(e) { achievements = {}; }
+}
+
+function saveAchievements() {
+  try { localStorage.setItem('contraForce_achievements', JSON.stringify(achievements)); } catch(e) {}
+}
+
+function unlockAchievement(id) {
+  if (achievements[id]) return;
+  const def = ACHIEVEMENTS.find(a => a.id === id);
+  if (!def) return;
+  achievements[id] = { unlocked: true, time: Date.now() };
+  saveAchievements();
+  showAchievementToast(def);
+  updateAchHud();
+  playSound('powerup');
+}
+
+function checkAchievements() {
+  for (const ach of ACHIEVEMENTS) {
+    if (achievements[ach.id]) continue;
+    if (ach.check()) unlockAchievement(ach.id);
+  }
+}
+
+// --- Achievement Toast ---
+let toastQueue = [];
+let toastShowing = false;
+
+function showAchievementToast(def) {
+  toastQueue.push(def);
+  if (!toastShowing) processToastQueue();
+}
+
+function processToastQueue() {
+  if (toastQueue.length === 0) { toastShowing = false; return; }
+  toastShowing = true;
+  const def = toastQueue.shift();
+  const toast = document.getElementById('achievementToast');
+  document.getElementById('toastIcon').textContent = def.icon;
+  document.getElementById('toastName').textContent = def.name;
+  document.getElementById('toastDesc').textContent = def.desc;
+  toast.classList.add('show');
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => processToastQueue(), 400);
+  }, 3000);
+}
+
+// --- Achievement Panel ---
+function toggleAchievementsPanel() {
+  const panel = document.getElementById('achievementsPanel');
+  panel.classList.toggle('open');
+  if (panel.classList.contains('open')) {
+    renderAchievementsGrid();
+    document.getElementById('leaderboardPanel').classList.remove('open');
+  }
+}
+
+function renderAchievementsGrid() {
+  const grid = document.getElementById('achGrid');
+  const unlocked = ACHIEVEMENTS.filter(a => achievements[a.id]);
+  document.getElementById('achCount').textContent = `${unlocked.length} / ${ACHIEVEMENTS.length} unlocked`;
+  
+  grid.innerHTML = ACHIEVEMENTS.map(ach => {
+    const u = achievements[ach.id];
+    const cls = u ? 'unlocked' : 'locked';
+    const timeStr = u ? new Date(u.time).toLocaleDateString() : '';
+    let progressHtml = '';
+    if (!u) {
+      const progressMap = {
+        'killing_spree': [runStats.kills, 25],
+        'massacre': [runStats.kills, 100],
+        'genocide': [runStats.kills, 250],
+        'combo5': [runStats.maxCombo, 5],
+        'combo15': [runStats.maxCombo, 15],
+        'treasure_hunter': [runStats.treasuresFound, 10],
+        'treasure_master': [runStats.treasuresFound, 30],
+        'score10k': [score, 10000],
+        'score50k': [score, 50000],
+        'score100k': [score, 100000],
+        'arms_dealer': [runStats.weaponsCollected.size, 3],
+        'arsenal': [runStats.weaponsCollected.size, 7],
+        'grapple_master': [runStats.grappleUses, 20],
+        'boss_master': [runStats.bossKills, 3],
+        'stage4': [runStats.stagesCleared, 3],
+      };
+      if (progressMap[ach.id]) {
+        const [cur, max] = progressMap[ach.id];
+        progressHtml = makeProgressBar(cur, max);
+      }
+    }
+    return `<div class="ach-card ${cls}">
+      <span class="ach-icon">${ach.icon}</span>
+      <div class="ach-info">
+        <span class="ach-name">${u ? ach.name : '???'}</span>
+        <span class="ach-desc">${ach.desc}</span>
+        ${u ? `<span class="ach-time">Unlocked ${timeStr}</span>` : ''}
+        ${progressHtml}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function makeProgressBar(current, max) {
+  const pct = Math.min(100, Math.floor((current / max) * 100));
+  return `<div class="ach-progress-bar"><div class="ach-progress-fill" style="width:${pct}%"></div></div>`;
+}
+
+function updateAchHud() {
+  const unlocked = ACHIEVEMENTS.filter(a => achievements[a.id]).length;
+  const btn = document.getElementById('achHudBtn');
+  if (btn) btn.textContent = `🏆 ${unlocked}/${ACHIEVEMENTS.length}`;
+}
+
+// --- Leaderboard ---
+function getLeaderboard() {
+  try {
+    const data = localStorage.getItem('contraForce_leaderboard');
+    return data ? JSON.parse(data) : [];
+  } catch(e) { return []; }
+}
+
+function saveLeaderboardEntry(entry) {
+  const lb = getLeaderboard();
+  lb.push(entry);
+  lb.sort((a, b) => b.score - a.score);
+  while (lb.length > 20) lb.pop();
+  try { localStorage.setItem('contraForce_leaderboard', JSON.stringify(lb)); } catch(e) {}
+}
+
+function clearLeaderboard() {
+  if (!confirm('Clear all leaderboard scores?')) return;
+  try { localStorage.removeItem('contraForce_leaderboard'); } catch(e) {}
+  renderLeaderboard();
+}
+
+function toggleLeaderboardPanel() {
+  const panel = document.getElementById('leaderboardPanel');
+  panel.classList.toggle('open');
+  if (panel.classList.contains('open')) {
+    renderLeaderboard();
+    document.getElementById('achievementsPanel').classList.remove('open');
+  }
+}
+
+function renderLeaderboard() {
+  const lb = getLeaderboard();
+  const container = document.getElementById('lbContent');
+  
+  if (lb.length === 0) {
+    container.innerHTML = '<div class="lb-empty">No scores yet. Play a game!</div>';
+    return;
+  }
+  
+  const rankIcons = ['🥇', '🥈', '🥉'];
+  const rankClasses = ['lb-rank-gold', 'lb-rank-silver', 'lb-rank-bronze'];
+  
+  container.innerHTML = `<table class="lb-table">
+    <thead><tr>
+      <th class="lb-rank">#</th>
+      <th>SCORE</th>
+      <th>STAGE</th>
+      <th>KILLS</th>
+      <th>TIME</th>
+      <th>DATE</th>
+    </tr></thead>
+    <tbody>${lb.map((e, i) => {
+      const rank = i < 3 ? `<span class="${rankClasses[i]}">${rankIcons[i]}</span>` : (i + 1);
+      const mins = Math.floor((e.duration || 0) / 60);
+      const secs = Math.floor((e.duration || 0) % 60);
+      const timeStr = `${mins}:${String(secs).padStart(2, '0')}`;
+      const dateStr = e.date ? new Date(e.date).toLocaleDateString() : '-';
+      const highlight = e.isLatest ? ' highlight' : '';
+      return `<tr class="${highlight}">
+        <td class="lb-rank">${rank}</td>
+        <td>${(e.score || 0).toLocaleString()}</td>
+        <td>${e.stage || '?'}</td>
+        <td>${e.kills || 0}</td>
+        <td>${timeStr}</td>
+        <td>${dateStr}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
+function submitScore(outcome) {
+  const lb = getLeaderboard();
+  lb.forEach(e => delete e.isLatest);
+  try { localStorage.setItem('contraForce_leaderboard', JSON.stringify(lb)); } catch(e) {}
+  
+  const duration = (Date.now() - runStats.startTime) / 1000;
+  saveLeaderboardEntry({
+    score,
+    stage,
+    kills: runStats.kills,
+    duration,
+    date: Date.now(),
+    outcome,
+    isLatest: true,
+  });
+}
+
+// --- Combo System ---
+function registerKill() {
+  runStats.kills++;
+  runStats.combo++;
+  runStats.comboTimer = 90;
+  if (runStats.combo > runStats.maxCombo) runStats.maxCombo = runStats.combo;
+  
+  if (runStats.combo >= 3 && gameState === 'playing') {
+    const cx = player.x + player.w / 2;
+    const cy = player.y - 10;
+    const comboColor = runStats.combo >= 10 ? '#ff44ff' : runStats.combo >= 5 ? '#ff8844' : '#ffcc44';
+    spawnPopup(cx, cy, `${runStats.combo}x COMBO!`, comboColor, runStats.combo >= 10 ? 14 : 11);
+  }
+  
+  checkAchievements();
+}
+
+function updateCombo() {
+  if (runStats.comboTimer > 0) {
+    runStats.comboTimer--;
+    if (runStats.comboTimer <= 0) runStats.combo = 0;
+  }
+}
+
+// Stage clear time tracking
+let stageStartTime = Date.now();
+
+// Load on startup
+loadAchievements();
 
 // --- JUICE SYSTEMS ---
 // Screen shake
@@ -2707,6 +3279,7 @@ function update() {
     if (coopMode && player2 && !player2.dead && player2.lives > 0) {
       // Player 2 still alive
     } else {
+      submitScore('gameover');
       gameState = 'gameover';
       showOverlay('GAME OVER', `FINAL SCORE: ${score}`, 'PRESS ENTER TO RESTART');
       return;
@@ -2716,6 +3289,7 @@ function update() {
     if (!player.dead && player.lives > 0) {
       // Player 1 still alive
     } else {
+      submitScore('gameover');
       gameState = 'gameover';
       showOverlay('GAME OVER', `FINAL SCORE: ${score}`, 'PRESS ENTER TO RESTART');
       return;
@@ -2724,6 +3298,8 @@ function update() {
 
   updateEnemiesAndBullets();
   updateParticles();
+  updateCombo();
+  checkAchievements();
 }
 
 function updatePlayer(p, getLeft, getRight, getUp, getDown, getJump, getShoot, getGrapple) {
@@ -3229,6 +3805,8 @@ function updatePlayer(p, getLeft, getRight, getUp, getDown, getJump, getShoot, g
     if (gLen > 0) { gx /= gLen; gy /= gLen; }
 
     const hookSpeed = 14;
+    runStats.grappleUses++;
+    checkAchievements();
     p.grapple = {
       x: p.x + p.w / 2,
       y: p.y + 4,
@@ -3761,9 +4339,11 @@ function updatePlayer(p, getLeft, getRight, getUp, getDown, getJump, getShoot, g
           const cx = e.x + e.w / 2;
           const cy = e.y + e.h / 2;
           score += e.score;
+          registerKill();
           spawnPopup(cx, cy - 10, '+' + e.score, '#ffff00', 12);
 
           if (e.isBoss) {
+            runStats.bossKills++;
             playSound('boss');
             triggerShake(20, 40);
             triggerFreeze(12);
@@ -3780,9 +4360,22 @@ function updatePlayer(p, getLeft, getRight, getUp, getDown, getJump, getShoot, g
             slowMo = 60;
             setTimeout(() => {
               if (stage < MAX_STAGE) {
+                // Check speed + untouchable achievements before advancing
+                const stageElapsed = (Date.now() - stageStartTime) / 1000;
+                runStats.stagesCleared++;
+                if (stageElapsed < 60) unlockAchievement('speedrun3');
+                if (runStats.stageDeaths === 0) unlockAchievement('untouchable');
+                runStats.stageDeaths = 0;
+                stageStartTime = Date.now();
+                checkAchievements();
                 stage++;
                 initGame();
               } else {
+                runStats.stagesCleared++;
+                if (runStats.stageDeaths === 0) unlockAchievement('untouchable');
+                if (runStats.noDeathRun) unlockAchievement('flawless');
+                checkAchievements();
+                submitScore('victory');
                 gameState = 'victory';
                 showOverlay('VICTORY!', `FINAL SCORE: ${score}`, 'PRESS ENTER TO PLAY AGAIN');
               }
@@ -3822,6 +4415,8 @@ function updatePlayer(p, getLeft, getRight, getUp, getDown, getJump, getShoot, g
         triggerFlash('#ff4488', 0.3);
       } else {
         p.weapon = WEAPONS[pw.type];
+        runStats.weaponsCollected.add(pw.type);
+        checkAchievements();
         const weaponNames = { SPREAD: 'SPREAD GUN!', LASER: 'LASER!', MACHINE: 'MACHINE GUN!', FLAME: 'FLAMETHROWER!', ROCKET: 'ROCKET!', HOMING: 'HOMING MISSILES!', WAVE: 'WAVE GUN!' };
         spawnPopup(cx, cy - 20, weaponNames[pw.type] || pw.type, '#44ffff', 12);
         triggerFlash('#44ffff', 0.25);
@@ -3867,6 +4462,8 @@ function updatePlayer(p, getLeft, getRight, getUp, getDown, getJump, getShoot, g
 
       // Score
       if (td.score > 0) score += td.score;
+      runStats.treasuresFound++;
+      checkAchievements();
 
       // Effects
       if (td.effect === 'shield') {
@@ -3883,6 +4480,8 @@ function updatePlayer(p, getLeft, getRight, getUp, getDown, getJump, getShoot, g
         const wNames = ['SPREAD','LASER','MACHINE','FLAME','ROCKET','HOMING','WAVE'];
         const rw = wNames[Math.floor(Math.random() * wNames.length)];
         p.weapon = WEAPONS[rw];
+        runStats.weaponsCollected.add(rw);
+        checkAchievements();
         spawnPopup(cx, cy - 20, rw + '!', td.color, 14);
         triggerFlash('#ff88ff', 0.25);
       } else {
@@ -4194,6 +4793,9 @@ function killPlayer(target) {
   p.dead = true;
   p.lives--;
   p.respawnTimer = 90;
+  runStats.deaths++;
+  runStats.stageDeaths++;
+  runStats.noDeathRun = false;
   p.grapple = null;
   p.grappleCooldown = 0;
   p.digging = false;
@@ -4991,7 +5593,7 @@ function draw() {
   // Update HUD
   const livesStr = '♥'.repeat(Math.max(0, player.lives));
   document.getElementById('livesDisplay').textContent = livesStr;
-  document.getElementById('scoreDisplay').textContent = 'SCORE: ' + score;
+  document.getElementById('scoreDisplay').textContent = 'SCORE: ' + score + (runStats.combo >= 3 ? ` (${runStats.combo}x)` : '');
   document.getElementById('weaponDisplay').textContent = player.weapon.name;
   document.getElementById('stageDisplay').textContent = stage + '-' + getTheme(stage).name;
   document.getElementById('zoomDisplay').textContent = '🔍' + Math.round(zoom * 100) + '%';
@@ -5147,11 +5749,34 @@ function controlsText() {
 function showOverlay(title, subtitle, action) {
   overlay.classList.remove('hidden');
   hud.classList.add('hidden');
+  
+  // Build run stats summary for gameover/victory
+  let statsHtml = '';
+  if (title === 'GAME OVER' || title === 'VICTORY!') {
+    const duration = (Date.now() - runStats.startTime) / 1000;
+    const mins = Math.floor(duration / 60);
+    const secs = Math.floor(duration % 60);
+    const achUnlocked = ACHIEVEMENTS.filter(a => achievements[a.id]).length;
+    statsHtml = `
+      <div style="display:flex; gap:20px; justify-content:center; margin:8px 0; font-size:9px; color:#aaa; font-family:'Segoe UI',sans-serif;">
+        <span>💀 ${runStats.kills} kills</span>
+        <span>🏆 ${runStats.maxCombo}x combo</span>
+        <span>⏱️ ${mins}:${String(secs).padStart(2,'0')}</span>
+        <span>🎖️ ${achUnlocked}/${ACHIEVEMENTS.length}</span>
+      </div>
+    `;
+  }
+  
   overlay.innerHTML = `
     <h1>${title}</h1>
     <h2>${subtitle}</h2>
+    ${statsHtml}
     <div class="blink">— ${action} —</div>
     <button id="startBtn">START GAME</button>
+    <div style="display:flex; gap:12px; margin-top:8px;">
+      <button onclick="toggleAchievementsPanel()" style="padding:6px 14px; font-family:'Press Start 2P',monospace; font-size:8px; background:rgba(60,40,10,0.7); color:#ffaa00; border:1px solid #ffaa00; border-radius:4px; cursor:pointer;">🏆 ACHIEVEMENTS</button>
+      <button onclick="toggleLeaderboardPanel()" style="padding:6px 14px; font-family:'Press Start 2P',monospace; font-size:8px; background:rgba(10,40,60,0.7); color:#44ddff; border:1px solid #44ddff; border-radius:4px; cursor:pointer;">📊 LEADERBOARD</button>
+    </div>
     <div class="controls-info">${controlsText()}</div>
   `;
   // Re-attach START button event listeners after replacing HTML
@@ -5236,9 +5861,15 @@ function startGameSession() {
       score = 0;
       stage = 1;
     }
+    resetRunStats();
+    stageStartTime = Date.now();
     gameState = 'playing';
     overlay.classList.add('hidden');
     hud.classList.remove('hidden');
+    // Close panels if open
+    document.getElementById('achievementsPanel').classList.remove('open');
+    document.getElementById('leaderboardPanel').classList.remove('open');
+    updateAchHud();
     initGame();
   }
 }
@@ -5248,6 +5879,25 @@ window.addEventListener('keydown', e => {
   if (rebindingAction) return; // Don't handle game keys during rebind
   if (e.code === 'Enter') {
     startGameSession();
+  }
+  // Tab — Achievements panel
+  if (e.code === 'Tab') {
+    e.preventDefault();
+    // Close leaderboard if open
+    document.getElementById('leaderboardPanel').classList.remove('open');
+    toggleAchievementsPanel();
+  }
+  // L — Leaderboard panel (only on title/gameover/victory or when paused)
+  if (e.code === 'KeyL' && (gameState !== 'playing' || paused)) {
+    document.getElementById('achievementsPanel').classList.remove('open');
+    toggleLeaderboardPanel();
+  }
+  // Escape — close any open panel
+  if (e.code === 'Escape') {
+    const achPanel = document.getElementById('achievementsPanel');
+    const lbPanel = document.getElementById('leaderboardPanel');
+    if (achPanel.classList.contains('open')) { achPanel.classList.remove('open'); e.preventDefault(); }
+    if (lbPanel.classList.contains('open')) { lbPanel.classList.remove('open'); e.preventDefault(); }
   }
   // Zoom controls
   if (e.code === 'Equal' || e.code === 'NumpadAdd') {
@@ -5866,6 +6516,13 @@ if (startBtn) {
     startGameSession();
   });
 }
+
+// HUD achievement/leaderboard buttons
+document.getElementById('achHudBtn').addEventListener('click', toggleAchievementsPanel);
+document.getElementById('lbHudBtn').addEventListener('click', toggleLeaderboardPanel);
+
+// Initialize HUD counter
+updateAchHud();
 
 gameLoop();
 </script>
