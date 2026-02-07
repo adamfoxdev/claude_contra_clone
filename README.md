@@ -186,6 +186,31 @@ Share your high scores with friends using encoded score codes:
 - **Import**: Click 📥 IMPORT SCORE — paste a friend's code to add their score to your leaderboard
 - Imported scores are marked with a 📥 flag
 
+## Online Multiplayer (WebRTC)
+
+Play co-op with a friend online — no server required! Uses peer-to-peer WebRTC connections with manual signaling.
+
+### How to Connect
+
+1. **Host** clicks 🌐 ONLINE MULTIPLAYER → HOST GAME
+2. Host copies the generated invite code and sends it to friend
+3. **Guest** clicks 🌐 ONLINE MULTIPLAYER → JOIN GAME, pastes the invite code
+4. Guest copies their answer code and sends it back to host
+5. Host pastes the answer code → connection established!
+
+### Architecture
+- **Host-authoritative**: The host runs the game simulation and sends state snapshots to the guest
+- **Guest sends inputs**: The guest's keyboard inputs are forwarded to the host, which processes them for Player 2
+- **RTCDataChannel**: Low-latency data channel for input and state sync
+- **STUN servers**: Google's public STUN servers for NAT traversal
+- **No server needed**: All signaling is done via copy/paste codes (base64-encoded SDP)
+
+### During Gameplay
+- The host sees a green 🌐 ONLINE HOST badge; the guest sees a blue 🌐 ONLINE GUEST badge
+- Latency (ping) is displayed in the HUD
+- The host controls game start/restart — the guest waits for the host
+- Co-op mode is automatically enabled when connected
+
 ## Level Editor File I/O
 
 Export and import custom level designs:
@@ -288,7 +313,7 @@ Select **CUSTOM** difficulty, then use the Admin Panel sliders to fine-tune ever
 - [x] ~~Additional stages and boss patterns~~ — 10 stages, 5-phase boss AI
 - [x] ~~Enhanced touch controls~~ — Opacity, swap sides, vibration
 - [ ] Gamepad / controller support
-- [ ] Online multiplayer via WebRTC
+- [x] ~~Online multiplayer via WebRTC~~ — P2P co-op with manual SDP signaling
 - [ ] Animated sprite sheets (replace procedural drawing)
 - [ ] Story mode with cutscenes
 - [ ] Steam / Itch.io packaging (Electron)
