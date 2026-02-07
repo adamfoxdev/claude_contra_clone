@@ -533,6 +533,9 @@
       <span class="lives-display" id="livesDisplay">♥♥♥</span>
       <span class="score-display" id="scoreDisplay">SCORE: 0</span>
     </div>
+    <div id="coopDisplay" style="display:none; position:absolute; left:10px; top:40px; color:#ffcccc; font-size:12px;">
+      P2: <span id="player2LivesDisplay">♥♥♥</span>
+    </div>
     <div class="hud-right">
       <span class="weapon-display" id="weaponDisplay">RIFLE</span>
       <span class="stage-display" id="stageDisplay">STAGE 1</span>
@@ -624,6 +627,7 @@
       <div class="admin-row"><label>God Mode</label><input type="checkbox" id="s_godMode"></div>
       <div class="admin-row"><label>Show Hitboxes</label><input type="checkbox" id="s_showHitboxes"></div>
       <div class="admin-row"><label>Pause Game</label><input type="checkbox" id="s_paused"></div>
+      <div class="admin-row"><label>Two-Player Co-op</label><input type="checkbox" id="s_coopMode"></div>
     </div>
   </div>
 
@@ -729,6 +733,8 @@ let showHitboxes = false;
 let paused = false;
 let editorMode = false;
 let editorBrush = 1; // 0=erase, 1=solid, 2=ladder
+let coopMode = false; // Two-player co-op
+let twoPlayerReady = false; // Toggle for admin panel
 
 // Zoom
 let zoom = 1.0;
@@ -897,6 +903,17 @@ const keybinds = {
   grapple: ['KeyC'],
 };
 
+// Player 2 keybinds for co-op mode
+const keybinds2 = {
+  left:  ['KeyJ'],
+  right: ['KeyL'],
+  up:    ['KeyI'],
+  down:  ['KeyK'],
+  jump:  ['KeyU'],
+  shoot: ['KeyO', 'KeyP'],
+  grapple: ['KeyY'],
+};
+
 // Pretty name for display
 function keyName(code) {
   const map = {
@@ -947,6 +964,15 @@ function isJump()  { return keybinds.jump.some(k => keys[k]) || isUp(); }
 function isJumpKey() { return keybinds.jump.some(k => keys[k]); } // jump key only, not Up
 function isShoot() { return keybinds.shoot.some(k => keys[k]); }
 function isGrapple() { return keybinds.grapple.some(k => keys[k]); }
+
+// Player 2 input functions (co-op)
+function isLeft2()    { return keybinds2.left.some(k => keys[k]); }
+function isRight2()   { return keybinds2.right.some(k => keys[k]); }
+function isUp2()      { return keybinds2.up.some(k => keys[k]); }
+function isDown2()    { return keybinds2.down.some(k => keys[k]); }
+function isJump2()    { return keybinds2.jump.some(k => keys[k]) || isUp2(); }
+function isShoot2()   { return keybinds2.shoot.some(k => keys[k]); }
+function isGrapple2() { return keybinds2.grapple.some(k => keys[k]); }
 
 // Rebinding state
 let rebindingAction = null;  // e.g. 'left'
@@ -1756,10 +1782,11 @@ function drawParticles(camX) {
 
 // --- PLAYER ---
 let player;
+let player2; // Second player in co-op mode
 
-function createPlayer() {
+function createPlayer(startX = 60) {
   return {
-    x: 60, y: 0,
+    x: startX, y: 0,
     w: 20, h: 32,
     vx: 0, vy: 0,
     onGround: false,
@@ -2619,7 +2646,12 @@ function rectCollide(a, b) {
 
 // --- GAME INIT ---
 function initGame() {
-  player = createPlayer();
+  player = createPlayer(40);
+  if (coopMode) {
+    player2 = createPlayer(80);
+  } else {
+    player2 = null;
+  }
   level = generateLevel(stage);
   spawnEnemies(level, stage);
   spawnPowerups(level, stage);
@@ -2640,10 +2672,22 @@ function initGame() {
   camY = 0;
 
   // Place player on ground
+  const col1 = Math.floor(player.x / TILE);
   for (let r = 0; r < level.rows; r++) {
-    if (level.map[r][2] === 1) {
+    if (col1 >= 0 && col1 < level.cols && level.map[r][col1] === 1) {
       player.y = r * TILE - player.h;
       break;
+    }
+  }
+  
+  // Place player2 on ground (co-op)
+  if (player2) {
+    const col2 = Math.floor(player2.x / TILE);
+    for (let r = 0; r < level.rows; r++) {
+      if (col2 >= 0 && col2 < level.cols && level.map[r][col2] === 1) {
+        player2.y = r * TILE - player2.h;
+        break;
+      }
     }
   }
 }
@@ -2652,14 +2696,44 @@ function initGame() {
 function update() {
   if (gameState !== 'playing') return;
 
-  const p = player;
+  updatePlayer(player, isLeft, isRight, isUp, isDown, isJump, isShoot, isGrapple);
+  
+  if (coopMode && player2) {
+    updatePlayer(player2, isLeft2, isRight2, isUp2, isDown2, isJump2, isShoot2, isGrapple2);
+  }
+
+  // Check game over: all players dead
+  if (player.dead && player.lives <= 0) {
+    if (coopMode && player2 && !player2.dead && player2.lives > 0) {
+      // Player 2 still alive
+    } else {
+      gameState = 'gameover';
+      showOverlay('GAME OVER', `FINAL SCORE: ${score}`, 'PRESS ENTER TO RESTART');
+      return;
+    }
+  }
+  if (coopMode && player2 && player2.dead && player2.lives <= 0) {
+    if (!player.dead && player.lives > 0) {
+      // Player 1 still alive
+    } else {
+      gameState = 'gameover';
+      showOverlay('GAME OVER', `FINAL SCORE: ${score}`, 'PRESS ENTER TO RESTART');
+      return;
+    }
+  }
+
+  updateEnemiesAndBullets();
+  updateParticles();
+}
+
+function updatePlayer(p, getLeft, getRight, getUp, getDown, getJump, getShoot, getGrapple) {
 
   if (p.dead) {
     p.respawnTimer--;
     if (p.respawnTimer <= 0) {
       if (p.lives <= 0) {
-        gameState = 'gameover';
-        showOverlay('GAME OVER', `FINAL SCORE: ${score}`, 'PRESS ENTER TO RESTART');
+        // In co-op, don't game-over if the other player is still alive
+        // (update() handles the combined game-over check)
         return;
       }
       p.dead = false;
@@ -2685,8 +2759,6 @@ function update() {
         camY = 0;
       }
     }
-    updateEnemiesAndBullets();
-    updateParticles();
     return;
   }
 
@@ -2702,17 +2774,17 @@ function update() {
   const distToLadderCenter = Math.abs(pCenterX - ladderCenterX);
   const onLadderTile = ladderAt(level, pCenterX, pMidY);
   const ladderBelow = ladderAt(level, pCenterX, pFeetY + 2);
-  const movingHorizontally = isLeft() || isRight();
+  const movingHorizontally = getLeft() || getRight();
 
   // Enter ladder: press Up/Down WITHOUT moving left/right, and be close to ladder center
   if (!p.onLadder) {
-    if (isUp() && !movingHorizontally && onLadderTile && distToLadderCenter < 10) {
+    if (getUp() && !movingHorizontally && onLadderTile && distToLadderCenter < 10) {
       p.onLadder = true;
       p.wallClimbing = false; p.wallClimbDir = 0;
       p.x = ladderCenterX - p.w / 2;
       p.vx = 0; p.vy = 0;
     }
-    if (isDown() && !movingHorizontally && p.onGround && ladderBelow && distToLadderCenter < 10) {
+    if (getDown() && !movingHorizontally && p.onGround && ladderBelow && distToLadderCenter < 10) {
       p.onLadder = true;
       p.wallClimbing = false; p.wallClimbDir = 0;
       p.y += 4;
@@ -2729,32 +2801,32 @@ function update() {
     p.vx = 0;
 
     // Climb up/down
-    if (isUp()) {
+    if (getUp()) {
       p.vy = -climbSpeed;
       p.climbFrame += 0.15;
-    } else if (isDown()) {
+    } else if (getDown()) {
       p.vy = climbSpeed;
       p.climbFrame += 0.15;
     }
 
     // Walk off ladder by holding left/right
-    if (isLeft() || isRight()) {
+    if (getLeft() || getRight()) {
       p.onLadder = false;
-      p.vx = (isLeft() ? -1 : 1) * playerSpeed;
-      p.facing = isLeft() ? -1 : 1;
+      p.vx = (getLeft() ? -1 : 1) * playerSpeed;
+      p.facing = getLeft() ? -1 : 1;
       // Don't re-enter immediately
     } else {
       // Update facing for aiming
-      if (isLeft()) p.facing = -1;
-      if (isRight()) p.facing = 1;
+      if (getLeft()) p.facing = -1;
+      if (getRight()) p.facing = 1;
     }
 
     // Jump off ladder
-    if (p.onLadder && keybinds.jump.some(k => keys[k])) {
+    if (p.onLadder && getJump()) {
       p.onLadder = false;
       p.vy = jumpForce * 0.7;
-      if (isLeft()) p.vx = -playerSpeed;
-      else if (isRight()) p.vx = playerSpeed;
+      if (getLeft()) p.vx = -playerSpeed;
+      else if (getRight()) p.vx = playerSpeed;
       playSound('jump');
     }
 
@@ -2828,8 +2900,8 @@ function update() {
 
     // Aim direction on ladder
     if (p.onLadder) {
-      if (isUp()) { p.aimX = 0; p.aimY = -1; }
-      else if (isDown()) { p.aimX = 0; p.aimY = 1; }
+      if (getUp()) { p.aimX = 0; p.aimY = -1; }
+      else if (getDown()) { p.aimX = 0; p.aimY = 1; }
       else { p.aimX = p.facing; p.aimY = 0; }
     }
 
@@ -2861,11 +2933,11 @@ function update() {
       }
     } else {
       // Climb up
-      if (isUp()) {
+      if (getUp()) {
         p.vy = -wallClimbSpeed;
         p.wallClimbFrame += 0.15;
         if (Math.floor(p.wallClimbFrame * 10) % 15 === 0) playSound('wall_climb');
-      } else if (isDown()) {
+      } else if (getDown()) {
         // Slide down slowly
         p.vy = wallClimbSpeed * 0.8;
         p.wallClimbFrame += 0.1;
@@ -2877,7 +2949,7 @@ function update() {
       p.vx = 0;
 
       // Wall jump — press jump to leap away from wall
-      if (isJumpKey()) {
+      if (getJump()) {
         p.wallClimbing = false;
         p.vy = jumpForce * 0.85;
         p.vx = -p.wallClimbDir * playerSpeed * 1.2;
@@ -2914,14 +2986,14 @@ function update() {
       // Aim direction while wall climbing
       p.aimX = -p.wallClimbDir;
       p.aimY = 0;
-      if (isUp()) p.aimY = -0.7;
-      if (isDown()) p.aimY = 0.7;
+      if (getUp()) p.aimY = -0.7;
+      if (getDown()) p.aimY = 0.7;
     }
 
   } else {
     // --- NORMAL GROUND MOVEMENT ---
     // Movement
-    p.prone = isDown() && p.onGround;
+    p.prone = getDown() && p.onGround;
     const speed = p.prone ? 0 : (playerSpeed * (playerSpeedBoost > 0 ? 1.6 : 1));
 
     // --- DIGGING (all directions) ---
@@ -2941,12 +3013,12 @@ function update() {
       digTargetC = Math.floor((p.x + p.w / 2) / TILE);
       digTargetR = Math.floor((p.y + p.h + 2) / TILE);
       digDirX = 0; digDirY = 1;
-    } else if (isUp() && !isLeft() && !isRight() && p.onGround && solidAbove) {
+    } else if (getUp() && !getLeft() && !getRight() && p.onGround && solidAbove) {
       // Dig UP — only when there's a solid tile right above your head
       digTargetC = headC;
       digTargetR = headR;
       digDirX = 0; digDirY = -1;
-    } else if (isLeft() && p.onGround && !p.prone) {
+    } else if (getLeft() && p.onGround && !p.prone) {
       // Dig LEFT — check if tile is directly adjacent
       const edgeX = p.x - 1;
       const checkC = Math.floor(edgeX / TILE);
@@ -2959,7 +3031,7 @@ function update() {
           digDirX = -1; digDirY = 0;
         }
       }
-    } else if (isRight() && p.onGround && !p.prone) {
+    } else if (getRight() && p.onGround && !p.prone) {
       // Dig RIGHT
       const edgeX = p.x + p.w + 1;
       const checkC = Math.floor(edgeX / TILE);
@@ -3052,15 +3124,15 @@ function update() {
     // Speed boost timer
     if (playerSpeedBoost > 0) playerSpeedBoost--;
 
-    if (isLeft() && !p.prone) { p.vx = -speed; p.facing = -1; }
-    else if (isRight() && !p.prone) { p.vx = speed; p.facing = 1; }
+    if (getLeft() && !p.prone) { p.vx = -speed; p.facing = -1; }
+    else if (getRight() && !p.prone) { p.vx = speed; p.facing = 1; }
     else p.vx = 0;
 
     // Aim direction
-    if (isUp() && !isLeft() && !isRight()) { p.aimX = 0; p.aimY = -1; }
-    else if (isDown() && !p.onGround) { p.aimX = 0; p.aimY = 1; }
-    else if (isUp() && (isLeft() || isRight())) { p.aimX = p.facing; p.aimY = -0.7; }
-    else if (isDown() && (isLeft() || isRight()) && !p.onGround) { p.aimX = p.facing; p.aimY = 0.7; }
+    if (getUp() && !getLeft() && !getRight()) { p.aimX = 0; p.aimY = -1; }
+    else if (getDown() && !p.onGround) { p.aimX = 0; p.aimY = 1; }
+    else if (getUp() && (getLeft() || getRight())) { p.aimX = p.facing; p.aimY = -0.7; }
+    else if (getDown() && (getLeft() || getRight()) && !p.onGround) { p.aimX = p.facing; p.aimY = 0.7; }
     else { p.aimX = p.facing; p.aimY = 0; }
 
     // Normalize aim
@@ -3069,7 +3141,7 @@ function update() {
 
     // Jump — works everywhere. Dig-up only blocks jump when actively digging upward
     const digUpActive = p.digging && p.digDirY === -1;
-    if (isJump() && p.onGround && !p.prone && !digUpActive) {
+    if (getJump() && p.onGround && !p.prone && !digUpActive) {
       p.vy = jumpForce;
       p.onGround = false;
       playSound('jump');
@@ -3122,7 +3194,7 @@ function update() {
 
     // --- WALL CLIMB ENTRY ---
     // If airborne and pressing up against a wall, start wall climbing
-    if (!p.onGround && !p.prone && isUp() && !p.digging) {
+    if (!p.onGround && !p.prone && getUp() && !p.digging) {
       let wallDir = 0;
       // Check wall on right
       for (let checkY = p.y + 2; checkY < p.y + p.h; checkY += 8) {
@@ -3148,7 +3220,7 @@ function update() {
   // --- GRAPPLE HOOK ---
   if (p.grappleCooldown > 0) p.grappleCooldown--;
 
-  if (isGrapple() && !p.grapple && p.grappleCooldown <= 0 && !p.dead && !p.digging) {
+  if (getGrapple() && !p.grapple && p.grappleCooldown <= 0 && !p.dead && !p.digging) {
     // Fire grapple in aim direction
     let gx = p.aimX, gy = p.aimY;
     // If aiming straight down, default to up
@@ -3288,8 +3360,8 @@ function update() {
       const swingControl = 0.006;
 
       // Player input swings left/right
-      if (isLeft())  g.swingVel -= swingControl;
-      if (isRight()) g.swingVel += swingControl;
+      if (getLeft())  g.swingVel -= swingControl;
+      if (getRight()) g.swingVel += swingControl;
 
       // Pendulum physics
       g.swingVel -= Math.sin(g.swingAngle) * swingGravity;
@@ -3331,10 +3403,10 @@ function update() {
       }
 
       // Aim while hanging
-      if (isUp() && !isLeft() && !isRight()) { p.aimX = 0; p.aimY = -1; }
-      else if (isDown() && !isLeft() && !isRight()) { p.aimX = 0; p.aimY = 1; }
-      else if (isUp() && (isLeft() || isRight())) { p.aimX = p.facing; p.aimY = -0.7; }
-      else if (isDown() && (isLeft() || isRight())) { p.aimX = p.facing; p.aimY = 0.7; }
+      if (getUp() && !getLeft() && !getRight()) { p.aimX = 0; p.aimY = -1; }
+      else if (getDown() && !getLeft() && !getRight()) { p.aimX = 0; p.aimY = 1; }
+      else if (getUp() && (getLeft() || getRight())) { p.aimX = p.facing; p.aimY = -0.7; }
+      else if (getDown() && (getLeft() || getRight())) { p.aimX = p.facing; p.aimY = 0.7; }
       else { p.aimX = p.facing; p.aimY = 0; }
       const hangAimLen = Math.sqrt(p.aimX * p.aimX + p.aimY * p.aimY);
       if (hangAimLen > 0) { p.aimX /= hangAimLen; p.aimY /= hangAimLen; }
@@ -3345,7 +3417,7 @@ function update() {
       }
 
       // Let go if player presses Down
-      if (isDown() && !isLeft() && !isRight()) {
+      if (getDown() && !getLeft() && !getRight()) {
         // Drop from grapple
         p.vy = 1;
         p.vx = g.swingVel * g.ropeLen * 0.5; // carry swing momentum
@@ -3355,7 +3427,7 @@ function update() {
     }
 
     // Release grapple on jump — launch with momentum
-    if (p.grapple && isJump() && (g.state === 'pulling' || g.state === 'hanging' || g.state === 'latched')) {
+    if (p.grapple && getJump() && (g.state === 'pulling' || g.state === 'hanging' || g.state === 'latched')) {
       const launchVx = g.state === 'hanging' ? g.swingVel * g.ropeLen * 0.8 : 0;
       p.vy = jumpForce * 0.7;
       p.vx = launchVx;
@@ -3366,7 +3438,7 @@ function update() {
     }
 
     // Release grapple on grapple key press while hanging (re-fire)
-    if (p.grapple && g.state === 'hanging' && isGrapple()) {
+    if (p.grapple && g.state === 'hanging' && getGrapple()) {
       // Will be caught next frame by the fire check since we null it
       p.vx = g.swingVel * g.ropeLen * 0.4;
       p.vy = -2;
@@ -3382,7 +3454,7 @@ function update() {
 
   // Fell off screen
   if (p.y > level.rows * TILE + 50) {
-    killPlayer();
+    killPlayer(p);
   }
 
   // Water kill (tile type 3)
@@ -3394,7 +3466,7 @@ function update() {
       if (level.map[feetRow][feetCol] === 3) {
         // Splash particles
         spawnParticles(p.x + p.w/2, p.y + p.h, '#44aaff', 12, 3, 20);
-        killPlayer();
+        killPlayer(p);
       }
     }
   }
@@ -3402,9 +3474,9 @@ function update() {
   } // end grapple-skip-else
 
   // Shooting
-  p.shooting = isShoot();
+  p.shooting = getShoot();
   if (p.fireTimer > 0) p.fireTimer--;
-  if (isShoot() && p.fireTimer <= 0) {
+  if (getShoot() && p.fireTimer <= 0) {
     fireWeapon(p);
     p.fireTimer = p.weapon.fireRate;
   }
@@ -3417,33 +3489,56 @@ function update() {
     p.animFrame = 0;
   }
 
-  // Camera with lookahead
+  // --- World-scope updates: camera, bullets, enemies ---
+  // Only run once per frame (for the primary player call)
+  if (p === player) {
+
+  // Camera with lookahead - frame both players in co-op
   const vw = viewW();
   const vh = viewH();
 
-  // Lookahead: the more zoomed in, the more we lead ahead of the player
-  // At zoom 1.0 lookahead is 0 (original behavior), at zoom 2.5 it's substantial
-  const lookaheadAmount = Math.max(0, (zoom - 0.8)) * 180;
-  const lookahead = p.facing * lookaheadAmount;
-
-  // Smooth camera target: center player horizontally with lookahead offset
-  const idealCamX = p.x + p.w / 2 + lookahead - vw * 0.35;
-  // Only scroll forward freely; backward scroll is smooth
-  if (idealCamX > camX) {
-    camX += (idealCamX - camX) * 0.12;
+  let targetCamX, targetCamY;
+  
+  if (coopMode && player2 && !player.dead && !player2.dead) {
+    // Frame both players in co-op mode
+    const bothX = Math.min(player.x, player2.x);
+    const bothMaxX = Math.max(player.x + player.w, player2.x + player2.w);
+    const centerX = (bothX + bothMaxX) / 2;
+    const bothY = Math.min(player.y, player2.y);
+    const bothMaxY = Math.max(player.y + player.h, player2.y + player2.h);
+    const centerY = (bothY + bothMaxY) / 2;
+    
+    targetCamX = centerX - vw * 0.5;
+    targetCamY = centerY - vh * 0.5;
   } else {
-    camX += (idealCamX - camX) * 0.06;
+    // Single player or active player in co-op
+    const activePlr = (!player.dead && player.lives > 0) ? player : (player2 && !player2.dead && player2.lives > 0) ? player2 : player;
+    const lookaheadAmount = Math.max(0, (zoom - 0.8)) * 180;
+    const lookahead = activePlr.facing * lookaheadAmount;
+    targetCamX = activePlr.x + activePlr.w / 2 + lookahead - vw * 0.35;
+    const worldH = level.rows * TILE;
+    targetCamY = activePlr.y + activePlr.h / 2 - vh / 2;
+  }
+
+  // Smooth camera
+  if (targetCamX > camX) {
+    camX += (targetCamX - camX) * 0.12;
+  } else {
+    camX += (targetCamX - camX) * 0.06;
   }
   if (camX < 0) camX = 0;
   const maxCam = level.cols * TILE - vw;
   if (camX > maxCam) camX = Math.max(0, maxCam);
 
-  // Vertical camera (centers on player, clamped to world)
+  // Vertical camera
   const worldH = level.rows * TILE;
-  const targetCamY = p.y + p.h / 2 - vh / 2;
+  if (camY < 0) camY = 0;
+  if (camY > worldH - vh) camY = Math.max(0, worldH - vh);
   camY += (targetCamY - camY) * 0.1;
   if (camY < 0) camY = 0;
   if (camY > worldH - vh) camY = Math.max(0, worldH - vh);
+
+  // Continue with existing update logic for bullets, etc.
 
   // Update bullets
   for (let i = bullets.length - 1; i >= 0; i--) {
@@ -3598,6 +3693,10 @@ function update() {
             // Damage player if close
             const pdx = (player.x+player.w/2)-cx, pdy = (player.y+player.h/2)-cy;
             if (Math.sqrt(pdx*pdx+pdy*pdy) < 60 && player.invincible <= 0) killPlayer();
+            if (coopMode && player2 && !player2.dead) {
+              const pdx2 = (player2.x+player2.w/2)-cx, pdy2 = (player2.y+player2.h/2)-cy;
+              if (Math.sqrt(pdx2*pdx2+pdy2*pdy2) < 60 && player2.invincible <= 0) killPlayer(player2);
+            }
           } else {
             spawnDebris(cx, cy, o.color, 5);
             spawnParticles(cx, cy, '#ddbb88', 10, 4, 20);
@@ -3706,7 +3805,7 @@ function update() {
     }
   }
 
-  updateEnemiesAndBullets();
+  } // end world-scope updates (p === player)
 
   // Powerup collection
   for (let i = powerups.length - 1; i >= 0; i--) {
@@ -3808,7 +3907,7 @@ function update() {
       if (b.x > p.x && b.x < p.x + p.w && b.y > p.y && b.y < p.y + p.h) {
         spawnParticles(b.x, b.y, '#ff4444', 8, 3, 12);
         enemyBullets.splice(i, 1);
-        killPlayer();
+        killPlayer(p);
         break;
       }
     }
@@ -3817,13 +3916,11 @@ function update() {
     for (const e of enemies) {
       if (!e.active) continue;
       if (rectCollide(p, e)) {
-        killPlayer();
+        killPlayer(p);
         break;
       }
     }
   }
-
-  updateParticles();
 }
 
 function updateEnemiesAndBullets() {
@@ -4027,6 +4124,10 @@ function updateEnemiesAndBullets() {
         // Damage player if near
         const pdx = (player.x+player.w/2)-b.x, pdy = (player.y+player.h/2)-b.y;
         if (Math.sqrt(pdx*pdx+pdy*pdy) < 50 && player.invincible <= 0) killPlayer();
+        if (coopMode && player2 && !player2.dead) {
+          const pdx2 = (player2.x+player2.w/2)-b.x, pdy2 = (player2.y+player2.h/2)-b.y;
+          if (Math.sqrt(pdx2*pdx2+pdy2*pdy2) < 50 && player2.invincible <= 0) killPlayer(player2);
+        }
       }
       enemyBullets.splice(i, 1);
     }
@@ -4087,18 +4188,19 @@ function fireWeapon(p) {
   }
 }
 
-function killPlayer() {
-  if (player.dead || player.invincible > 0 || godMode) return;
-  player.dead = true;
-  player.lives--;
-  player.respawnTimer = 90;
-  player.grapple = null;
-  player.grappleCooldown = 0;
-  player.digging = false;
-  player.digTimer = 0;
+function killPlayer(target) {
+  const p = target || player;
+  if (p.dead || p.invincible > 0 || godMode) return;
+  p.dead = true;
+  p.lives--;
+  p.respawnTimer = 90;
+  p.grapple = null;
+  p.grappleCooldown = 0;
+  p.digging = false;
+  p.digTimer = 0;
   playSound('die');
-  const cx = player.x + player.w / 2;
-  const cy = player.y + player.h / 2;
+  const cx = p.x + p.w / 2;
+  const cy = p.y + p.h / 2;
   triggerShake(12, 20);
   triggerFreeze(8);
   triggerFlash('#ff0000', 0.5);
@@ -4108,7 +4210,7 @@ function killPlayer() {
   spawnRing(cx, cy, '#ff4400', 60, 16);
   spawnDebris(cx, cy, '#338833', 8);
   spawnDebris(cx, cy, '#ddbb88', 4);
-  if (player.lives <= 0) {
+  if (p.lives <= 0) {
     spawnPopup(cx, cy - 30, 'GAME OVER', '#ff0000', 16);
   }
 }
@@ -4625,6 +4727,118 @@ function draw() {
     }
   }
 
+  // Draw player 2 (co-op mode)
+  if (coopMode && player2 && !player2.dead) {
+    if (player2.invincible > 0 && Math.floor(player2.invincible / 3) % 2) {
+      // Blink when invincible
+    } else if (player2.onLadder) {
+      drawClimbingChar(player2.x, player2.y, player2.w, player2.h, player2.climbFrame);
+    } else if (player2.wallClimbing) {
+      drawWallClimbingChar(player2.x, player2.y, player2.w, player2.h, player2.wallClimbFrame, player2.wallClimbDir);
+    } else {
+      drawPixelChar(player2.x, player2.y, player2.w, player2.h, '#3366ff',
+        player2.facing, player2.prone, player2.animFrame, player2.shooting, player2.aimY);
+    }
+  }
+
+  // Draw grapple hook (player 2)
+  if (coopMode && player2 && player2.grapple && !player2.dead) {
+    const g = player2.grapple;
+    const px = player2.x + player2.w / 2 - camX;
+    const py = player2.y + 4;
+    const hx = g.state === 'firing' ? g.x - camX : g.anchorX - camX;
+    const hy = g.state === 'firing' ? g.y : Math.max(0, g.anchorY);
+
+    // Rope
+    if (g.state === 'hanging') {
+      // Curved rope for hanging/swinging
+      ctx.strokeStyle = '#6688ff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(hx, hy);
+      // Slight sag in rope
+      const midX = (hx + px) / 2 + g.swingAngle * 5;
+      const midY = (hy + py) / 2 + 4;
+      ctx.quadraticCurveTo(midX, midY, px, py);
+      ctx.stroke();
+      // Rope glow
+      ctx.globalAlpha = 0.25;
+      ctx.strokeStyle = '#66eeff';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(hx, hy);
+      ctx.quadraticCurveTo(midX, midY, px, py);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    } else {
+      // Straight rope for firing/latched/pulling
+      ctx.strokeStyle = '#6688ff';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(hx, hy);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // Rope glow
+      ctx.globalAlpha = 0.3;
+      ctx.strokeStyle = g.state === 'pulling' ? '#66eeff' : '#aaccff';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(hx, hy);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    // Anchor head
+    if (g.state === 'firing') {
+      // Spinning hook
+      const angle = Date.now() * 0.02;
+      ctx.fillStyle = '#6688ff';
+      ctx.beginPath();
+      ctx.arc(hx, hy, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.save();
+      ctx.translate(hx, hy);
+      ctx.rotate(angle);
+      ctx.fillStyle = '#6688ff';
+      ctx.beginPath();
+      ctx.arc(5, 0, 2, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    } else if (g.state === 'latched') {
+      ctx.fillStyle = '#ffaa44';
+      ctx.beginPath();
+      ctx.arc(hx, hy, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffdd66';
+      ctx.fillRect(hx - 5, hy - 1, 3, 2);
+      ctx.fillRect(hx + 2, hy - 1, 3, 2);
+      ctx.fillRect(hx - 1, hy - 5, 2, 3);
+    }
+
+    // Hanging glow pulse
+    if (g.state === 'hanging') {
+      const pulse = Math.sin(Date.now() * 0.005) * 0.15 + 0.15;
+      ctx.globalAlpha = pulse;
+      ctx.fillStyle = '#88ccff';
+      ctx.beginPath();
+      ctx.arc(hx, hy, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    // Latched flash
+    if (g.state === 'latched') {
+      const flash = Math.sin(Date.now() * 0.03) * 0.5 + 0.5;
+      ctx.globalAlpha = flash * 0.5;
+      ctx.fillStyle = '#ffff88';
+      ctx.beginPath();
+      ctx.arc(hx, hy, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+
   // Draw player bullets
   for (const b of bullets) {
     const bx = b.x - camX;
@@ -4788,6 +5002,16 @@ function draw() {
   else if (player.grapple) grapDisp.textContent = '🪝 ACTIVE';
   else if (player.grappleCooldown > 0) grapDisp.textContent = '🪝 ...';
   else grapDisp.textContent = playerDepth > 0 ? '🪝 READY' : '';
+  
+  // Update co-op display
+  const coopDisp = document.getElementById('coopDisplay');
+  if (coopMode && player2) {
+    coopDisp.style.display = 'block';
+    const player2LivesStr = '♥'.repeat(Math.max(0, player2.lives));
+    document.getElementById('player2LivesDisplay').textContent = player2LivesStr;
+  } else {
+    coopDisp.style.display = 'none';
+  }
 
   // --- Admin overlays ---
   if (adminOpen) {
@@ -5114,6 +5338,7 @@ function syncAdminPanel() {
   document.getElementById('s_showHitboxes').checked = showHitboxes;
   document.getElementById('s_editorMode').checked = editorMode;
   document.getElementById('s_paused').checked = paused;
+  document.getElementById('s_coopMode').checked = coopMode;
 }
 
 // Bind slider events
@@ -5131,6 +5356,7 @@ document.getElementById('s_godMode').addEventListener('change', e => { godMode =
 document.getElementById('s_showHitboxes').addEventListener('change', e => { showHitboxes = e.target.checked; });
 document.getElementById('s_editorMode').addEventListener('change', e => { editorMode = e.target.checked; updateCursor(); });
 document.getElementById('s_paused').addEventListener('change', e => { paused = e.target.checked; });
+document.getElementById('s_coopMode').addEventListener('change', e => { coopMode = e.target.checked; });
 
 // --- Weapon buttons ---
 (function buildWeaponBar() {
