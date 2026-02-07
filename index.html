@@ -1219,6 +1219,7 @@ function isRight2()   { return keybinds2.right.some(k => keys[k]); }
 function isUp2()      { return keybinds2.up.some(k => keys[k]); }
 function isDown2()    { return keybinds2.down.some(k => keys[k]); }
 function isJump2()    { return keybinds2.jump.some(k => keys[k]) || isUp2(); }
+function isJumpKey2() { return keybinds2.jump.some(k => keys[k]); } // jump key only, not Up
 function isShoot2()   { return keybinds2.shoot.some(k => keys[k]); }
 function isGrapple2() { return keybinds2.grapple.some(k => keys[k]); }
 
@@ -3268,10 +3269,10 @@ function initGame() {
 function update() {
   if (gameState !== 'playing') return;
 
-  updatePlayer(player, isLeft, isRight, isUp, isDown, isJump, isShoot, isGrapple);
+  updatePlayer(player, isLeft, isRight, isUp, isDown, isJump, isJumpKey, isShoot, isGrapple);
   
   if (coopMode && player2) {
-    updatePlayer(player2, isLeft2, isRight2, isUp2, isDown2, isJump2, isShoot2, isGrapple2);
+    updatePlayer(player2, isLeft2, isRight2, isUp2, isDown2, isJump2, isJumpKey2, isShoot2, isGrapple2);
   }
 
   // Check game over: all players dead
@@ -3302,7 +3303,7 @@ function update() {
   checkAchievements();
 }
 
-function updatePlayer(p, getLeft, getRight, getUp, getDown, getJump, getShoot, getGrapple) {
+function updatePlayer(p, getLeft, getRight, getUp, getDown, getJump, getJumpKey, getShoot, getGrapple) {
 
   if (p.dead) {
     p.respawnTimer--;
@@ -3398,7 +3399,7 @@ function updatePlayer(p, getLeft, getRight, getUp, getDown, getJump, getShoot, g
     }
 
     // Jump off ladder
-    if (p.onLadder && getJump()) {
+    if (p.onLadder && getJumpKey()) {
       p.onLadder = false;
       p.vy = jumpForce * 0.7;
       if (getLeft()) p.vx = -playerSpeed;
@@ -3525,7 +3526,7 @@ function updatePlayer(p, getLeft, getRight, getUp, getDown, getJump, getShoot, g
       p.vx = 0;
 
       // Wall jump — press jump to leap away from wall
-      if (getJump()) {
+      if (getJumpKey()) {
         p.wallClimbing = false;
         p.vy = jumpForce * 0.85;
         p.vx = -p.wallClimbDir * playerSpeed * 1.2;
