@@ -85,6 +85,40 @@
     margin-top: 10px;
   }
 
+  #startBtn {
+    margin-top: 20px;
+    padding: 12px 32px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 12px;
+    background: linear-gradient(135deg, #ff4444, #ff2222);
+    color: #fff;
+    border: 2px solid #ff8888;
+    border-radius: 4px;
+    cursor: pointer;
+    text-shadow: 1px 1px 2px #000;
+    box-shadow: 0 4px 15px rgba(255, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    transition: all 0.2s;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  #startBtn:hover {
+    background: linear-gradient(135deg, #ff6666, #ff4444);
+    box-shadow: 0 6px 20px rgba(255, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+  }
+
+  #startBtn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(255, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+
+  #startBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
   #hud {
     position: absolute;
     top: 8px;
@@ -472,12 +506,15 @@
     <h2>⚡ RUN & GUN ⚡</h2>
     <div class="subtitle">A CLASSIC SIDE-SCROLLING SHOOTER</div>
     <div class="blink">— PRESS ENTER TO START —</div>
+    <button id="startBtn">START GAME</button>
     <div class="controls-info">
       ARROWS / WASD — MOVE &amp; AIM<br>
       SPACE / Z — SHOOT<br>
       X — JUMP<br>
       UP/DOWN ON LADDER — CLIMB<br>
       UP AGAINST WALL — WALL CRAWL<br>
+      C — FIRE GRAPPLE HOOK<br>
+      +/- — ZOOM<br>
     </div>
   </div>
 </div>
@@ -4854,21 +4891,26 @@ function gameLoop() {
   requestAnimationFrame(gameLoop);
 }
 
-// --- START ---
+// --- START GAME FUNCTION ---
+function startGameSession() {
+  if (gameState === 'title' || gameState === 'gameover' || gameState === 'victory') {
+    initAudio();
+    if (gameState === 'gameover' || gameState === 'victory') {
+      score = 0;
+      stage = 1;
+    }
+    gameState = 'playing';
+    overlay.classList.add('hidden');
+    hud.classList.remove('hidden');
+    initGame();
+  }
+}
+
+// Keyboard start (Enter key)
 window.addEventListener('keydown', e => {
   if (rebindingAction) return; // Don't handle game keys during rebind
   if (e.code === 'Enter') {
-    if (gameState === 'title' || gameState === 'gameover' || gameState === 'victory') {
-      initAudio();
-      if (gameState === 'gameover' || gameState === 'victory') {
-        score = 0;
-        stage = 1;
-      }
-      gameState = 'playing';
-      overlay.classList.add('hidden');
-      hud.classList.remove('hidden');
-      initGame();
-    }
+    startGameSession();
   }
   // Zoom controls
   if (e.code === 'Equal' || e.code === 'NumpadAdd') {
@@ -5475,6 +5517,16 @@ resize();
 
 // Initialize mobile touch controls
 initTouchControls();
+
+// Initialize start button
+const startBtn = document.getElementById('startBtn');
+if (startBtn) {
+  startBtn.addEventListener('click', startGameSession);
+  startBtn.addEventListener('touchend', e => {
+    e.preventDefault();
+    startGameSession();
+  });
+}
 
 gameLoop();
 </script>
