@@ -879,6 +879,64 @@
   }
   .music-btn:hover { background: rgba(50,50,50,0.6); color: #fff; }
   .music-btn.muted { color: #ff4444; }
+
+  /* --- ONLINE MULTIPLAYER (WebRTC) --- */
+  .mp-modal-bg {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9100; font-family: 'Press Start 2P', monospace;
+  }
+  .mp-modal {
+    background: #0a0a1a; border: 2px solid #44ddff; border-radius: 10px;
+    padding: 20px 28px; max-width: 520px; width: 90%; color: #ddd;
+    box-shadow: 0 0 40px rgba(68,221,255,0.3);
+  }
+  .mp-modal h2 { color: #44ddff; font-size: 14px; margin: 0 0 14px; text-align: center; }
+  .mp-modal h3 { color: #ffaa00; font-size: 10px; margin: 12px 0 6px; }
+  .mp-modal p { font-size: 8px; color: #999; line-height: 1.6; margin: 4px 0 10px; }
+  .mp-modal textarea {
+    width: 100%; height: 70px; background: #111; color: #44ff88; border: 1px solid #336;
+    border-radius: 4px; font-family: monospace; font-size: 9px; padding: 6px; resize: none;
+    box-sizing: border-box;
+  }
+  .mp-modal textarea:focus { border-color: #44ddff; outline: none; }
+  .mp-btn {
+    display: inline-block; padding: 7px 16px; font-family: 'Press Start 2P', monospace;
+    font-size: 8px; border: 1px solid; border-radius: 4px; cursor: pointer;
+    margin: 4px 4px 4px 0; transition: background 0.15s;
+  }
+  .mp-btn-host { background: rgba(0,60,30,0.8); color: #44ff88; border-color: #44ff88; }
+  .mp-btn-host:hover { background: rgba(0,100,50,0.8); }
+  .mp-btn-join { background: rgba(0,30,60,0.8); color: #44ddff; border-color: #44ddff; }
+  .mp-btn-join:hover { background: rgba(0,50,100,0.8); }
+  .mp-btn-danger { background: rgba(60,0,0,0.8); color: #ff4444; border-color: #ff4444; }
+  .mp-btn-danger:hover { background: rgba(100,0,0,0.8); }
+  .mp-btn-copy { background: rgba(40,40,10,0.8); color: #ffaa00; border-color: #ffaa00; }
+  .mp-btn-copy:hover { background: rgba(80,60,10,0.8); }
+  .mp-btn-close { background: rgba(30,30,30,0.8); color: #aaa; border-color: #666; }
+  .mp-btn-close:hover { background: rgba(60,60,60,0.8); }
+  .mp-status {
+    font-size: 8px; padding: 6px 10px; border-radius: 4px; margin: 8px 0;
+    text-align: center;
+  }
+  .mp-status-waiting { background: rgba(60,60,0,0.4); color: #ffaa00; border: 1px solid #665500; }
+  .mp-status-connected { background: rgba(0,60,0,0.4); color: #44ff88; border: 1px solid #006600; }
+  .mp-status-error { background: rgba(60,0,0,0.4); color: #ff4444; border: 1px solid #660000; }
+  .mp-step { margin: 10px 0; padding: 8px; background: rgba(20,20,40,0.6); border-radius: 6px; border: 1px solid #223; }
+  .mp-step-num {
+    display: inline-block; width: 18px; height: 18px; line-height: 18px;
+    text-align: center; background: #44ddff; color: #000; border-radius: 50%;
+    font-size: 8px; font-weight: bold; margin-right: 6px;
+  }
+  .mp-step-label { font-size: 9px; color: #ccc; }
+  .mp-hud {
+    position: absolute; top: 4px; left: 50%; transform: translateX(-50%);
+    font-family: 'Press Start 2P', monospace; font-size: 7px;
+    padding: 2px 10px; border-radius: 10px; z-index: 90; pointer-events: none;
+  }
+  .mp-hud-host { background: rgba(0,60,0,0.6); color: #44ff88; border: 1px solid #44ff88; }
+  .mp-hud-guest { background: rgba(0,30,60,0.6); color: #44ddff; border: 1px solid #44ddff; }
+  .mp-hud-ping { font-size: 6px; color: #999; margin-left: 8px; }
 </style>
 </head>
 <body>
@@ -1192,6 +1250,12 @@
 
 <!-- SAVE TOAST -->
 <div class="save-toast" id="saveToast"></div>
+
+<!-- MULTIPLAYER HUD BADGE -->
+<div id="mpHud" class="mp-hud" style="display:none;"></div>
+
+<!-- MULTIPLAYER MODAL (injected dynamically) -->
+<div id="mpModalContainer"></div>
 
 <script>
 // ============================================================
@@ -4459,10 +4523,19 @@ function initGame() {
 function update() {
   if (gameState !== 'playing') return;
 
+  // Guest in online multiplayer: don't run simulation locally (state comes from host)
+  if (mpRole === 'guest' && mpConnected) return;
+
   updatePlayer(player, isLeft, isRight, isUp, isDown, isJump, isJumpKey, isShoot, isGrapple);
   
   if (coopMode && player2) {
-    updatePlayer(player2, isLeft2, isRight2, isUp2, isDown2, isJump2, isJumpKey2, isShoot2, isGrapple2);
+    // Online host: use remote inputs from the guest
+    if (mpRole === 'host' && mpConnected) {
+      updatePlayer(player2, mpRemoteLeft, mpRemoteRight, mpRemoteUp, mpRemoteDown,
+                   mpRemoteJump, mpRemoteJumpKey, mpRemoteShoot, mpRemoteGrapple);
+    } else {
+      updatePlayer(player2, isLeft2, isRight2, isUp2, isDown2, isJump2, isJumpKey2, isShoot2, isGrapple2);
+    }
   }
 
   // Check game over: all players dead
@@ -6969,6 +7042,542 @@ function controlsText() {
          `\` (BACKTICK) — ADMIN PANEL`;
 }
 
+// ============================================================
+//  ONLINE MULTIPLAYER (WebRTC P2P)
+// ============================================================
+// Architecture: Host-authoritative. Host runs game loop & sends state.
+// Guest sends inputs and receives state snapshots.
+// Signaling: Manual copy/paste of base64-encoded SDP offers/answers.
+
+const MP_SYNC_INTERVAL = 3;        // Send state every N frames (lower = smoother but more data)
+const MP_INPUT_INTERVAL = 1;       // Send inputs every N frames
+const MP_ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+];
+
+let mpRole = null;                  // 'host' | 'guest' | null
+let mpPeer = null;                  // RTCPeerConnection
+let mpChannel = null;               // RTCDataChannel
+let mpConnected = false;
+let mpFrameCount = 0;
+let mpRemoteInput = {               // Guest's input state (as seen by host)
+  left: false, right: false, up: false, down: false,
+  jump: false, jumpKey: false, shoot: false, grapple: false
+};
+let mpPingStart = 0;
+let mpLatency = 0;
+
+// --- Compact state for sync (omit particles/decorations, they're visual-only) ---
+function getMpSyncState() {
+  const sp = (p) => {
+    if (!p) return null;
+    return {
+      x: Math.round(p.x), y: Math.round(p.y),
+      vx: +(p.vx.toFixed(2)), vy: +(p.vy.toFixed(2)),
+      facing: p.facing, aimX: p.aimX, aimY: p.aimY,
+      onGround: p.onGround, dead: p.dead, lives: p.lives,
+      invincible: p.invincible, prone: p.prone, shooting: p.shooting,
+      onLadder: p.onLadder, wallClimbing: p.wallClimbing,
+      wallClimbDir: p.wallClimbDir, fireTimer: p.fireTimer,
+      respawnTimer: p.respawnTimer, animFrame: p.animFrame,
+      _weaponType: (p.weapon && p.weapon.name) || 'RIFLE',
+      grapple: p.grapple ? { x: p.grapple.x, y: p.grapple.y,
+        anchorX: p.grapple.anchorX, anchorY: p.grapple.anchorY,
+        state: p.grapple.state, vx: p.grapple.vx || 0, vy: p.grapple.vy || 0 } : null,
+      grappleCooldown: p.grappleCooldown,
+      digging: p.digging, digTimer: p.digTimer
+    };
+  };
+  return {
+    t: 's',                          // type = state
+    sc: score, st: stage, gs: gameState,
+    p1: sp(player), p2: sp(player2),
+    en: enemies.map(e => ({ x: Math.round(e.x), y: Math.round(e.y), vx: +(e.vx||0).toFixed(1), vy: +(e.vy||0).toFixed(1),
+      hp: e.hp, etype: e.etype, facing: e.facing, dead: e.dead, onGround: e.onGround,
+      fireTimer: e.fireTimer || 0, isBoss: e.isBoss || false,
+      bossPhase: e.bossPhase, bossTimer: e.bossTimer, bossHp: e.bossHp })),
+    bu: bullets.map(b => ({ x: Math.round(b.x), y: Math.round(b.y), vx: +b.vx.toFixed(1), vy: +b.vy.toFixed(1),
+      type: b.type || 'normal', owner: b.owner || 0 })),
+    eb: enemyBullets.map(b => ({ x: Math.round(b.x), y: Math.round(b.y), vx: +b.vx.toFixed(1), vy: +b.vy.toFixed(1) })),
+    pw: powerups.map(p => ({ x: Math.round(p.x), y: Math.round(p.y), vy: +(p.vy||0).toFixed(1), type: p.type, onGround: p.onGround })),
+    cx: Math.round(camX), cy: Math.round(camY),
+    fx: freezeFrames, sm: slowMo
+  };
+}
+
+// --- Apply received state on the guest side ---
+function applyMpState(s) {
+  if (mpRole !== 'guest') return;
+
+  score = s.sc;
+  stage = s.st;
+
+  // Handle game state transitions
+  if (s.gs !== gameState) {
+    if (s.gs === 'gameover') {
+      gameState = 'gameover';
+      playSound('game_over');
+      showOverlay('GAME OVER', `SCORE: ${score}`, 'PRESS ENTER TO RETRY');
+      return;
+    } else if (s.gs === 'victory') {
+      gameState = 'victory';
+      playSound('victory');
+      showOverlay('VICTORY!', `FINAL SCORE: ${score}`, 'PRESS ENTER TO PLAY AGAIN');
+      return;
+    }
+    gameState = s.gs;
+  }
+  if (gameState !== 'playing') return;
+
+  const restoreP = (target, src) => {
+    if (!target || !src) return;
+    target.x = src.x; target.y = src.y;
+    target.vx = src.vx; target.vy = src.vy;
+    target.facing = src.facing; target.aimX = src.aimX; target.aimY = src.aimY;
+    target.onGround = src.onGround; target.dead = src.dead; target.lives = src.lives;
+    target.invincible = src.invincible; target.prone = src.prone;
+    target.shooting = src.shooting; target.onLadder = src.onLadder;
+    target.wallClimbing = src.wallClimbing; target.wallClimbDir = src.wallClimbDir;
+    target.fireTimer = src.fireTimer; target.respawnTimer = src.respawnTimer;
+    target.animFrame = src.animFrame; target.digging = src.digging;
+    target.digTimer = src.digTimer; target.grappleCooldown = src.grappleCooldown;
+    if (src._weaponType && WEAPONS[src._weaponType]) target.weapon = WEAPONS[src._weaponType];
+    if (src.grapple) {
+      if (!target.grapple) target.grapple = {};
+      Object.assign(target.grapple, src.grapple);
+    } else { target.grapple = null; }
+  };
+
+  restoreP(player, s.p1);
+  if (player2) restoreP(player2, s.p2);
+
+  // Sync enemies
+  enemies.length = 0;
+  for (const e of s.en) {
+    enemies.push({ x: e.x, y: e.y, vx: e.vx, vy: e.vy, hp: e.hp,
+      etype: e.etype, facing: e.facing, dead: e.dead, onGround: e.onGround,
+      w: ENEMY_TYPES[e.etype] ? ENEMY_TYPES[e.etype].w : 20,
+      h: ENEMY_TYPES[e.etype] ? ENEMY_TYPES[e.etype].h : 32,
+      fireTimer: e.fireTimer, isBoss: e.isBoss,
+      bossPhase: e.bossPhase, bossTimer: e.bossTimer, bossHp: e.bossHp,
+      speed: ENEMY_TYPES[e.etype] ? ENEMY_TYPES[e.etype].speed : 1,
+      color: ENEMY_TYPES[e.etype] ? ENEMY_TYPES[e.etype].color : '#f00' });
+  }
+
+  // Sync bullets
+  bullets.length = 0;
+  for (const b of s.bu) bullets.push({ x: b.x, y: b.y, vx: b.vx, vy: b.vy, type: b.type, owner: b.owner, w: 6, h: 4 });
+  enemyBullets.length = 0;
+  for (const b of s.eb) enemyBullets.push({ x: b.x, y: b.y, vx: b.vx, vy: b.vy, w: 5, h: 5 });
+
+  // Sync powerups
+  powerups.length = 0;
+  for (const p of s.pw) powerups.push({ x: p.x, y: p.y, vy: p.vy, type: p.type, onGround: p.onGround, w: 24, h: 24 });
+
+  camX = s.cx; camY = s.cy;
+  freezeFrames = s.fx || 0;
+  slowMo = s.sm || 0;
+}
+
+// --- Send data over the data channel (safe wrapper) ---
+function mpSend(obj) {
+  if (mpChannel && mpChannel.readyState === 'open') {
+    try { mpChannel.send(JSON.stringify(obj)); } catch(e) {}
+  }
+}
+
+// --- Handle incoming messages ---
+function mpOnMessage(evt) {
+  let msg;
+  try { msg = JSON.parse(evt.data); } catch(e) { return; }
+
+  if (msg.t === 's') {
+    // State update (guest receives from host)
+    applyMpState(msg);
+  } else if (msg.t === 'i') {
+    // Input update (host receives from guest)
+    mpRemoteInput = msg.i;
+  } else if (msg.t === 'init') {
+    // Initial full state (guest receives when joining)
+    if (mpRole === 'guest') {
+      // Restore the full level + state
+      if (msg.level) {
+        level = msg.level;
+      }
+      stage = msg.stage;
+      score = msg.score;
+      currentDifficulty = msg.difficulty || 'normal';
+      if (DIFFICULTY_PRESETS[currentDifficulty]) {
+        diffSettings = { ...DIFFICULTY_PRESETS[currentDifficulty] };
+      }
+      // Create players
+      player = createPlayer(40);
+      player2 = createPlayer(80);
+      coopMode = true;
+      gameState = 'playing';
+      overlay.classList.add('hidden');
+      hud.classList.remove('hidden');
+      // Apply positions from state
+      if (msg.p1) {
+        const restoreP = (target, src) => {
+          target.x = src.x; target.y = src.y;
+          target.vx = src.vx; target.vy = src.vy;
+          target.facing = src.facing; target.lives = src.lives;
+          if (src._weaponType && WEAPONS[src._weaponType]) target.weapon = WEAPONS[src._weaponType];
+        };
+        restoreP(player, msg.p1);
+        if (msg.p2) restoreP(player2, msg.p2);
+      }
+      camX = msg.camX || 0; camY = msg.camY || 0;
+      showSaveToast('Connected! You are Player 2', 'success');
+    }
+  } else if (msg.t === 'ping') {
+    mpSend({ t: 'pong', ts: msg.ts });
+  } else if (msg.t === 'pong') {
+    mpLatency = Date.now() - msg.ts;
+  } else if (msg.t === 'start') {
+    // Host tells guest the game is (re)starting
+    if (mpRole === 'guest') {
+      stage = msg.stage || 1;
+      score = 0;
+      player = createPlayer(40);
+      player2 = createPlayer(80);
+      coopMode = true;
+      if (msg.level) level = msg.level;
+      gameState = 'playing';
+      overlay.classList.add('hidden');
+      hud.classList.remove('hidden');
+    }
+  } else if (msg.t === 'chat') {
+    showSaveToast(`${msg.from}: ${msg.msg}`, 'success');
+  }
+}
+
+// --- Create RTCPeerConnection and set up channel ---
+function mpCreatePeer() {
+  mpPeer = new RTCPeerConnection({ iceServers: MP_ICE_SERVERS });
+  mpPeer.oniceconnectionstatechange = () => {
+    const st = mpPeer.iceConnectionState;
+    if (st === 'disconnected' || st === 'failed' || st === 'closed') {
+      mpDisconnect('Connection lost');
+    }
+  };
+  return mpPeer;
+}
+
+function mpSetupChannel(ch) {
+  mpChannel = ch;
+  ch.onopen = () => {
+    mpConnected = true;
+    updateMpHud();
+    showSaveToast(mpRole === 'host' ? 'Player 2 connected!' : 'Connected to host!', 'success');
+    // If host, send initial game state
+    if (mpRole === 'host') {
+      coopMode = true;
+      if (!player2) player2 = createPlayer(80);
+      mpSend({
+        t: 'init',
+        level: { map: level.map, cols: level.cols, rows: level.rows,
+                 groundRow: level.groundRow, treasureMap: level.treasureMap || {} },
+        stage, score,
+        difficulty: currentDifficulty,
+        p1: getMpSyncState().p1,
+        p2: getMpSyncState().p2,
+        camX, camY
+      });
+    }
+    // Start ping interval
+    if (mpRole === 'host') {
+      mpPeer._pingInterval = setInterval(() => {
+        mpSend({ t: 'ping', ts: Date.now() });
+      }, 2000);
+    }
+  };
+  ch.onmessage = mpOnMessage;
+  ch.onclose = () => mpDisconnect('Channel closed');
+}
+
+// --- Encode/decode SDP as compact base64 ---
+function mpEncodeSDP(sdp) {
+  try {
+    // Compress: strip unnecessary lines for brevity
+    const compact = JSON.stringify(sdp);
+    return btoa(unescape(encodeURIComponent(compact)));
+  } catch(e) { return ''; }
+}
+
+function mpDecodeSDP(code) {
+  try {
+    const json = decodeURIComponent(escape(atob(code.trim())));
+    return JSON.parse(json);
+  } catch(e) { return null; }
+}
+
+// --- HOST: Create offer ---
+async function mpHostCreate() {
+  mpRole = 'host';
+  mpCreatePeer();
+  const ch = mpPeer.createDataChannel('game', { ordered: true, maxRetransmits: 0 });
+  mpSetupChannel(ch);
+
+  // Collect ICE candidates
+  const candidates = [];
+  mpPeer.onicecandidate = (e) => {
+    if (e.candidate) candidates.push(e.candidate);
+  };
+
+  const offer = await mpPeer.createOffer();
+  await mpPeer.setLocalDescription(offer);
+
+  // Wait for ICE gathering to complete
+  await new Promise(resolve => {
+    if (mpPeer.iceGatheringState === 'complete') return resolve();
+    mpPeer.onicegatheringstatechange = () => {
+      if (mpPeer.iceGatheringState === 'complete') resolve();
+    };
+    // Fallback timeout
+    setTimeout(resolve, 5000);
+  });
+
+  return mpEncodeSDP(mpPeer.localDescription);
+}
+
+// --- HOST: Accept answer ---
+async function mpHostAcceptAnswer(answerCode) {
+  const answer = mpDecodeSDP(answerCode);
+  if (!answer) throw new Error('Invalid answer code');
+  await mpPeer.setRemoteDescription(new RTCSessionDescription(answer));
+}
+
+// --- GUEST: Join with offer ---
+async function mpGuestJoin(offerCode) {
+  const offer = mpDecodeSDP(offerCode);
+  if (!offer) throw new Error('Invalid offer code');
+
+  mpRole = 'guest';
+  mpCreatePeer();
+
+  // Listen for data channel from host
+  mpPeer.ondatachannel = (e) => {
+    mpSetupChannel(e.channel);
+  };
+
+  await mpPeer.setRemoteDescription(new RTCSessionDescription(offer));
+  const answer = await mpPeer.createAnswer();
+  await mpPeer.setLocalDescription(answer);
+
+  // Wait for ICE gathering
+  await new Promise(resolve => {
+    if (mpPeer.iceGatheringState === 'complete') return resolve();
+    mpPeer.onicegatheringstatechange = () => {
+      if (mpPeer.iceGatheringState === 'complete') resolve();
+    };
+    setTimeout(resolve, 5000);
+  });
+
+  return mpEncodeSDP(mpPeer.localDescription);
+}
+
+// --- Disconnect ---
+function mpDisconnect(reason) {
+  if (mpPeer) {
+    if (mpPeer._pingInterval) clearInterval(mpPeer._pingInterval);
+    try { mpPeer.close(); } catch(e) {}
+  }
+  mpPeer = null;
+  mpChannel = null;
+  mpConnected = false;
+  mpRole = null;
+  mpFrameCount = 0;
+  updateMpHud();
+  if (reason) showSaveToast(`MP: ${reason}`, 'error');
+}
+
+// --- HUD badge ---
+function updateMpHud() {
+  const el = document.getElementById('mpHud');
+  if (!el) return;
+  if (!mpRole || !mpConnected) {
+    el.style.display = 'none';
+    return;
+  }
+  el.style.display = '';
+  el.className = 'mp-hud ' + (mpRole === 'host' ? 'mp-hud-host' : 'mp-hud-guest');
+  el.innerHTML = `🌐 ONLINE ${mpRole === 'host' ? 'HOST' : 'GUEST'}` +
+    (mpLatency ? `<span class="mp-hud-ping">${mpLatency}ms</span>` : '');
+}
+
+// --- Per-frame sync (called from gameLoop) ---
+function mpTick() {
+  if (!mpConnected) return;
+  mpFrameCount++;
+
+  if (mpRole === 'host' && gameState === 'playing') {
+    // Send state to guest
+    if (mpFrameCount % MP_SYNC_INTERVAL === 0) {
+      mpSend(getMpSyncState());
+    }
+    // Update ping display
+    if (mpFrameCount % 120 === 0) updateMpHud();
+  }
+
+  if (mpRole === 'guest' && gameState === 'playing') {
+    // Send local inputs to host
+    if (mpFrameCount % MP_INPUT_INTERVAL === 0) {
+      mpSend({
+        t: 'i',
+        i: {
+          left: isLeft(), right: isRight(), up: isUp(), down: isDown(),
+          jump: isJump(), jumpKey: isJumpKey(), shoot: isShoot(), grapple: isGrapple()
+        }
+      });
+    }
+  }
+}
+
+// --- Remote input functions (host uses these for player2) ---
+function mpRemoteLeft()    { return mpRemoteInput.left; }
+function mpRemoteRight()   { return mpRemoteInput.right; }
+function mpRemoteUp()      { return mpRemoteInput.up; }
+function mpRemoteDown()    { return mpRemoteInput.down; }
+function mpRemoteJump()    { return mpRemoteInput.jump; }
+function mpRemoteJumpKey() { return mpRemoteInput.jumpKey; }
+function mpRemoteShoot()   { return mpRemoteInput.shoot; }
+function mpRemoteGrapple() { return mpRemoteInput.grapple; }
+
+// ============================================================
+//  MULTIPLAYER UI — Modal
+// ============================================================
+function showMpModal() {
+  const container = document.getElementById('mpModalContainer');
+  if (mpConnected) {
+    // Show disconnect dialog
+    container.innerHTML = `
+      <div class="mp-modal-bg" onclick="if(event.target===this)closeMpModal()">
+        <div class="mp-modal">
+          <h2>🌐 ONLINE MULTIPLAYER</h2>
+          <div class="mp-status mp-status-connected">✓ Connected as ${mpRole === 'host' ? 'HOST' : 'GUEST'} — Latency: ${mpLatency}ms</div>
+          <div style="text-align:center; margin-top:12px;">
+            <button class="mp-btn mp-btn-danger" onclick="mpDisconnect('Disconnected');closeMpModal();">DISCONNECT</button>
+            <button class="mp-btn mp-btn-close" onclick="closeMpModal()">CLOSE</button>
+          </div>
+        </div>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="mp-modal-bg" onclick="if(event.target===this)closeMpModal()">
+      <div class="mp-modal">
+        <h2>🌐 ONLINE MULTIPLAYER</h2>
+        <p>Play co-op with a friend online! One player hosts, the other joins. No server needed — direct peer-to-peer via WebRTC.</p>
+        <div style="display:flex; gap:8px; justify-content:center; margin-bottom:10px;">
+          <button class="mp-btn mp-btn-host" onclick="mpStartHost()">🖥️ HOST GAME</button>
+          <button class="mp-btn mp-btn-join" onclick="mpStartJoin()">🎮 JOIN GAME</button>
+          <button class="mp-btn mp-btn-close" onclick="closeMpModal()">CLOSE</button>
+        </div>
+        <div id="mpSteps"></div>
+      </div>
+    </div>`;
+}
+
+function closeMpModal() {
+  document.getElementById('mpModalContainer').innerHTML = '';
+}
+
+// --- HOST FLOW ---
+async function mpStartHost() {
+  const steps = document.getElementById('mpSteps');
+  steps.innerHTML = `<div class="mp-status mp-status-waiting">⏳ Generating invite code...</div>`;
+  try {
+    const offerCode = await mpHostCreate();
+    steps.innerHTML = `
+      <div class="mp-step">
+        <span class="mp-step-num">1</span><span class="mp-step-label">Send this code to your friend:</span>
+        <textarea id="mpOfferCode" readonly onclick="this.select()">${offerCode}</textarea>
+        <button class="mp-btn mp-btn-copy" onclick="navigator.clipboard.writeText(document.getElementById('mpOfferCode').value);this.textContent='✓ COPIED';">📋 COPY CODE</button>
+      </div>
+      <div class="mp-step">
+        <span class="mp-step-num">2</span><span class="mp-step-label">Paste your friend's answer code:</span>
+        <textarea id="mpAnswerInput" placeholder="Paste answer code here..."></textarea>
+        <button class="mp-btn mp-btn-host" onclick="mpHostFinish()">✓ CONNECT</button>
+      </div>
+      <div id="mpHostStatus"></div>`;
+  } catch(e) {
+    steps.innerHTML = `<div class="mp-status mp-status-error">✗ Error: ${e.message}</div>`;
+  }
+}
+
+async function mpHostFinish() {
+  const code = document.getElementById('mpAnswerInput').value.trim();
+  const status = document.getElementById('mpHostStatus');
+  if (!code) { status.innerHTML = `<div class="mp-status mp-status-error">Please paste the answer code</div>`; return; }
+  status.innerHTML = `<div class="mp-status mp-status-waiting">⏳ Connecting...</div>`;
+  try {
+    await mpHostAcceptAnswer(code);
+    status.innerHTML = `<div class="mp-status mp-status-waiting">⏳ Establishing connection...</div>`;
+    // Wait for channel to open (up to 10s)
+    let waited = 0;
+    const check = setInterval(() => {
+      waited += 200;
+      if (mpConnected) {
+        clearInterval(check);
+        closeMpModal();
+      } else if (waited > 10000) {
+        clearInterval(check);
+        status.innerHTML = `<div class="mp-status mp-status-error">✗ Connection timed out. Check the code and try again.</div>`;
+      }
+    }, 200);
+  } catch(e) {
+    status.innerHTML = `<div class="mp-status mp-status-error">✗ ${e.message}</div>`;
+  }
+}
+
+// --- JOIN FLOW ---
+function mpStartJoin() {
+  const steps = document.getElementById('mpSteps');
+  steps.innerHTML = `
+    <div class="mp-step">
+      <span class="mp-step-num">1</span><span class="mp-step-label">Paste the host's invite code:</span>
+      <textarea id="mpOfferInput" placeholder="Paste invite code here..."></textarea>
+      <button class="mp-btn mp-btn-join" onclick="mpJoinFinish()">GENERATE ANSWER</button>
+    </div>
+    <div id="mpJoinSteps2"></div>`;
+}
+
+async function mpJoinFinish() {
+  const code = document.getElementById('mpOfferInput').value.trim();
+  const steps2 = document.getElementById('mpJoinSteps2');
+  if (!code) { steps2.innerHTML = `<div class="mp-status mp-status-error">Please paste the invite code</div>`; return; }
+  steps2.innerHTML = `<div class="mp-status mp-status-waiting">⏳ Generating answer...</div>`;
+  try {
+    const answerCode = await mpGuestJoin(code);
+    steps2.innerHTML = `
+      <div class="mp-step">
+        <span class="mp-step-num">2</span><span class="mp-step-label">Send this answer code back to the host:</span>
+        <textarea id="mpAnswerCode" readonly onclick="this.select()">${answerCode}</textarea>
+        <button class="mp-btn mp-btn-copy" onclick="navigator.clipboard.writeText(document.getElementById('mpAnswerCode').value);this.textContent='✓ COPIED';">📋 COPY CODE</button>
+      </div>
+      <div id="mpJoinStatus"><div class="mp-status mp-status-waiting">⏳ Waiting for host to connect...</div></div>`;
+    // Wait for connection
+    let waited = 0;
+    const check = setInterval(() => {
+      waited += 200;
+      if (mpConnected) {
+        clearInterval(check);
+        closeMpModal();
+      } else if (waited > 30000) {
+        clearInterval(check);
+        const el = document.getElementById('mpJoinStatus');
+        if (el) el.innerHTML = `<div class="mp-status mp-status-error">✗ Connection timed out.</div>`;
+      }
+    }, 200);
+  } catch(e) {
+    steps2.innerHTML = `<div class="mp-status mp-status-error">✗ ${e.message}</div>`;
+  }
+}
+
 function showOverlay(title, subtitle, action) {
   overlay.classList.remove('hidden');
   hud.classList.add('hidden');
@@ -7030,6 +7639,9 @@ function showOverlay(title, subtitle, action) {
     </div>
     ${extraBtns}
     ${saveLoadBtns}
+    <div style="margin-top:8px;">
+      <button onclick="showMpModal()" style="padding:6px 14px; font-family:'Press Start 2P',monospace; font-size:8px; background:rgba(10,20,50,0.7); color:#88aaff; border:1px solid #88aaff; border-radius:4px; cursor:pointer;">🌐 ONLINE MULTIPLAYER</button>
+    </div>
     <div class="controls-info">${controlsText()}</div>
   `;
   // Re-attach START button event listeners after replacing HTML
@@ -7098,6 +7710,7 @@ function gameLoop() {
   updateFlash();
   updatePopups();
   updateMusic();
+  mpTick();
 
   if (gameState === 'playing') {
     draw();
@@ -7109,6 +7722,11 @@ function gameLoop() {
 
 // --- START GAME FUNCTION ---
 function startGameSession() {
+  // Guest in online multiplayer can't start games — host controls this
+  if (mpRole === 'guest' && mpConnected) {
+    showSaveToast('Waiting for host to start...', 'success');
+    return;
+  }
   if (gameState === 'title' || gameState === 'gameover' || gameState === 'victory') {
     playSound('menu_select');
     initAudio();
@@ -7127,6 +7745,17 @@ function startGameSession() {
     document.getElementById('leaderboardPanel').classList.remove('open');
     updateAchHud();
     initGame();
+
+    // Notify online guest of new game start
+    if (mpRole === 'host' && mpConnected) {
+      coopMode = true;
+      if (!player2) player2 = createPlayer(80);
+      mpSend({
+        t: 'start', stage,
+        level: { map: level.map, cols: level.cols, rows: level.rows,
+                 groundRow: level.groundRow, treasureMap: level.treasureMap || {} }
+      });
+    }
   }
 }
 
