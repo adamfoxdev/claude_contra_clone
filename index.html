@@ -85,6 +85,40 @@
     margin-top: 10px;
   }
 
+  #startBtn {
+    margin-top: 20px;
+    padding: 12px 32px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 12px;
+    background: linear-gradient(135deg, #ff4444, #ff2222);
+    color: #fff;
+    border: 2px solid #ff8888;
+    border-radius: 4px;
+    cursor: pointer;
+    text-shadow: 1px 1px 2px #000;
+    box-shadow: 0 4px 15px rgba(255, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    transition: all 0.2s;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  #startBtn:hover {
+    background: linear-gradient(135deg, #ff6666, #ff4444);
+    box-shadow: 0 6px 20px rgba(255, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+  }
+
+  #startBtn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(255, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+
+  #startBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
   #hud {
     position: absolute;
     top: 8px;
@@ -298,6 +332,194 @@
     cursor: pointer;
     font-size: 9px;
   }
+
+  /* --- MOBILE TOUCH CONTROLS --- */
+  #touchControls {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 140px;
+    background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,0.7));
+    z-index: 50;
+    pointer-events: none;
+  }
+
+  #touchControls.visible { display: flex; pointer-events: auto; }
+
+  /* D-Pad (left side) */
+  .touch-dpad {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    width: 100px;
+    height: 100px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: 1fr 1fr 1fr;
+    gap: 2px;
+    pointer-events: auto;
+  }
+
+  .dpad-btn {
+    background: rgba(100,100,150,0.6);
+    border: 2px solid #666;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: #aaa;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    cursor: pointer;
+    transition: all 0.1s;
+    touch-action: none;
+  }
+
+  .dpad-btn:active,
+  .dpad-btn.active {
+    background: rgba(150,150,200,0.9);
+    border-color: #aaa;
+    color: #fff;
+    transform: scale(0.95);
+  }
+
+  /* D-Pad center (empty) */
+  .dpad-center { grid-area: 2 / 2; pointer-events: none; background: none; border: none; }
+
+  /* Action buttons (right side) */
+  .touch-actions {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    display: flex;
+    gap: 8px;
+    flex-direction: column;
+    pointer-events: auto;
+  }
+
+  .action-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .touch-btn {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: rgba(150,80,80,0.7);
+    border: 2px solid #666;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: #aaa;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    cursor: pointer;
+    transition: all 0.1s;
+    touch-action: none;
+  }
+
+  .touch-btn:active,
+  .touch-btn.active {
+    background: rgba(200,100,100,0.95);
+    border-color: #ff6666;
+    color: #fff;
+    transform: scale(0.9);
+  }
+
+  .touch-btn.jump { background: rgba(100,150,100,0.7); }
+  .touch-btn.jump:active,
+  .touch-btn.jump.active { background: rgba(150,200,150,0.95); border-color: #66ff66; color: #fff; }
+
+  .touch-btn.grapple { background: rgba(80,120,180,0.7); }
+  .touch-btn.grapple:active,
+  .touch-btn.grapple.active { background: rgba(100,150,220,0.95); border-color: #6699ff; color: #fff; }
+
+  /* Touch Control Size Variants */
+  #touchControls.size-small .touch-dpad { width: 70px; height: 70px; }
+  #touchControls.size-small .dpad-btn { font-size: 14px; }
+  #touchControls.size-small .touch-btn { width: 40px; height: 40px; font-size: 10px; }
+  #touchControls.size-small .touch-actions { gap: 6px; }
+  #touchControls.size-small .action-row { gap: 6px; }
+
+  /* Default is medium (100px dpad, 50px buttons) */
+  #touchControls.size-medium .touch-dpad { width: 100px; height: 100px; }
+  #touchControls.size-medium .dpad-btn { font-size: 20px; }
+  #touchControls.size-medium .touch-btn { width: 50px; height: 50px; font-size: 11px; }
+  #touchControls.size-medium .touch-actions { gap: 8px; }
+  #touchControls.size-medium .action-row { gap: 8px; }
+
+  #touchControls.size-large .touch-dpad { width: 130px; height: 130px; }
+  #touchControls.size-large .dpad-btn { font-size: 28px; }
+  #touchControls.size-large .touch-btn { width: 65px; height: 65px; font-size: 13px; }
+  #touchControls.size-large .touch-actions { gap: 10px; }
+  #touchControls.size-large .action-row { gap: 10px; }
+
+  /* Size selector */
+  #touchSizeSelector {
+    position: absolute;
+    bottom: 150px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    z-index: 100;
+    pointer-events: auto;
+  }
+
+  .size-btn {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    font-size: 10px;
+    background: rgba(100,100,120,0.7);
+    border: 1px solid #666;
+    border-radius: 3px;
+    color: #aaa;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: 'Press Start 2P', monospace;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .size-btn:hover,
+  .size-btn.active {
+    background: rgba(150,150,180,0.9);
+    border-color: #aaa;
+    color: #fff;
+  }
+
+  .size-btn.active {
+    background: rgba(100,150,100,0.9);
+    border-color: #66ff66;
+    color: #66ff66;
+  }
+
+  /* Show controls on mobile/touch devices */
+  @media (max-width: 768px) {
+    #touchControls { display: flex; }
+    #adminToggleBtn { bottom: 160px; }
+  }
+
+  /* Landscape mode adjustments */
+  @media (max-height: 500px) {
+    #touchControls { height: auto; padding-bottom: 10px; }
+    #touchControls.size-small { height: auto; }
+    #touchControls.size-medium { height: auto; }
+    #touchControls.size-large { height: auto; }
+    #adminToggleBtn { bottom: auto; bottom: 140px; }
+  }
   .kb-btn .kb-remove:hover { color: #ff4444; }
 </style>
 </head>
@@ -320,17 +542,52 @@
     </div>
   </div>
 
+  <!-- MOBILE TOUCH CONTROLS -->
+  <div id="touchControls" class="size-medium">
+    <!-- Size selector -->
+    <div id="touchSizeSelector">
+      <button class="size-btn" id="sizeSmall" title="Small buttons">S</button>
+      <button class="size-btn active" id="sizeMedium" title="Medium buttons">M</button>
+      <button class="size-btn" id="sizeLarge" title="Large buttons">L</button>
+    </div>
+    <!-- D-Pad (movement) -->
+    <div class="touch-dpad">
+      <div></div>
+      <button class="dpad-btn" id="touchUp" data-action="up">▲</button>
+      <div></div>
+      <button class="dpad-btn" id="touchLeft" data-action="left">◄</button>
+      <div class="dpad-center"></div>
+      <button class="dpad-btn" id="touchRight" data-action="right">►</button>
+      <div></div>
+      <button class="dpad-btn" id="touchDown" data-action="down">▼</button>
+      <div></div>
+    </div>
+    <!-- Action buttons -->
+    <div class="touch-actions">
+      <div class="action-row">
+        <button class="touch-btn jump" id="touchJump" data-action="jump">JUMP</button>
+        <button class="touch-btn" id="touchShoot" data-action="shoot">FIRE</button>
+      </div>
+      <div class="action-row">
+        <button class="touch-btn grapple" id="touchGrapple" data-action="grapple">HOOK</button>
+      </div>
+    </div>
+  </div>
+
   <div id="overlay">
     <h1>CONTRA FORCE</h1>
     <h2>⚡ RUN & GUN ⚡</h2>
     <div class="subtitle">A CLASSIC SIDE-SCROLLING SHOOTER</div>
     <div class="blink">— PRESS ENTER TO START —</div>
+    <button id="startBtn">START GAME</button>
     <div class="controls-info">
       ARROWS / WASD — MOVE &amp; AIM<br>
       SPACE / Z — SHOOT<br>
       X — JUMP<br>
       UP/DOWN ON LADDER — CLIMB<br>
       UP AGAINST WALL — WALL CRAWL<br>
+      C — FIRE GRAPPLE HOOK<br>
+      +/- — ZOOM<br>
     </div>
   </div>
 </div>
@@ -695,6 +952,127 @@ function isGrapple() { return keybinds.grapple.some(k => keys[k]); }
 let rebindingAction = null;  // e.g. 'left'
 let rebindingSlot = 0;       // which slot (0 or 1)
 let rebindingEl = null;       // the button being rebound
+
+// Set touch button size and save preference
+function setTouchButtonSize(size) {
+  const validSizes = ['small', 'medium', 'large'];
+  if (!validSizes.includes(size)) size = 'medium';
+  
+  const touchControls = document.getElementById('touchControls');
+  if (!touchControls) return;
+  
+  // Remove all size classes and add new one
+  touchControls.classList.remove('size-small', 'size-medium', 'size-large');
+  touchControls.classList.add('size-' + size);
+  
+  // Update size button highlights
+  document.getElementById('sizeSmall')?.classList.toggle('active', size === 'small');
+  document.getElementById('sizeMedium')?.classList.toggle('active', size === 'medium');
+  document.getElementById('sizeLarge')?.classList.toggle('active', size === 'large');
+  
+  // Save preference to localStorage
+  localStorage.setItem('touchButtonSize', size);
+}
+
+// --- MOBILE TOUCH INPUT ---
+const touchKeys = {}; // Tracks active touch inputs
+const TOUCH_KEY_MAP = {
+  up: 'ArrowUp',
+  down: 'ArrowDown',
+  left: 'ArrowLeft',
+  right: 'ArrowRight',
+  jump: 'KeyX',
+  shoot: 'Space',
+  grapple: 'KeyC',
+};
+
+function isMobileDevice() {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    || (window.innerWidth <= 768 && window.matchMedia('(hover: none)').matches);
+}
+
+function initTouchControls() {
+  const touchControls = document.getElementById('touchControls');
+  if (!touchControls) return;
+
+  // Load saved button size preference or default to medium
+  let savedSize = localStorage.getItem('touchButtonSize') || 'medium';
+  setTouchButtonSize(savedSize);
+
+  // Show touch controls on mobile devices
+  if (isMobileDevice()) {
+    touchControls.classList.add('visible');
+  }
+
+  // Size selector buttons
+  document.getElementById('sizeSmall')?.addEventListener('click', () => setTouchButtonSize('small'));
+  document.getElementById('sizeMedium')?.addEventListener('click', () => setTouchButtonSize('medium'));
+  document.getElementById('sizeLarge')?.addEventListener('click', () => setTouchButtonSize('large'));
+
+  // Get all touch buttons
+  const touchButtons = document.querySelectorAll('[data-action]');
+  
+  touchButtons.forEach(btn => {
+    const action = btn.getAttribute('data-action');
+    
+    // Touch start (finger down)
+    btn.addEventListener('touchstart', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      btn.classList.add('active');
+      touchKeys[action] = true;
+      // Simulate keyboard down
+      const keyCode = TOUCH_KEY_MAP[action];
+      if (keyCode) keys[keyCode] = true;
+    }, { passive: false });
+    
+    // Mouse down (for desktop testing)
+    btn.addEventListener('mousedown', e => {
+      e.preventDefault();
+      btn.classList.add('active');
+      touchKeys[action] = true;
+      const keyCode = TOUCH_KEY_MAP[action];
+      if (keyCode) keys[keyCode] = true;
+    });
+    
+    // Touch end (finger up)
+    btn.addEventListener('touchend', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      btn.classList.remove('active');
+      delete touchKeys[action];
+      const keyCode = TOUCH_KEY_MAP[action];
+      if (keyCode) keys[keyCode] = false;
+    }, { passive: false });
+    
+    // Touch cancel (interrupted touch)
+    btn.addEventListener('touchcancel', e => {
+      btn.classList.remove('active');
+      delete touchKeys[action];
+      const keyCode = TOUCH_KEY_MAP[action];
+      if (keyCode) keys[keyCode] = false;
+    });
+    
+    // Mouse up/leave (for desktop testing)
+    btn.addEventListener('mouseup', e => {
+      btn.classList.remove('active');
+      delete touchKeys[action];
+      const keyCode = TOUCH_KEY_MAP[action];
+      if (keyCode) keys[keyCode] = false;
+    });
+    
+    btn.addEventListener('mouseleave', e => {
+      btn.classList.remove('active');
+      delete touchKeys[action];
+      const keyCode = TOUCH_KEY_MAP[action];
+      if (keyCode) keys[keyCode] = false;
+    });
+  });
+  
+  // Prevent default touch behaviors to avoid scrolling
+  touchControls.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+  touchControls.addEventListener('touchstart', e => e.stopPropagation(), { passive: false });
+}
 
 // --- GAME STATE ---
 let gameState = 'title'; // title, playing, gameover, victory
@@ -4549,8 +4927,18 @@ function showOverlay(title, subtitle, action) {
     <h1>${title}</h1>
     <h2>${subtitle}</h2>
     <div class="blink">— ${action} —</div>
+    <button id="startBtn">START GAME</button>
     <div class="controls-info">${controlsText()}</div>
   `;
+  // Re-attach START button event listeners after replacing HTML
+  const startBtn = document.getElementById('startBtn');
+  if (startBtn) {
+    startBtn.addEventListener('click', startGameSession);
+    startBtn.addEventListener('touchend', e => {
+      e.preventDefault();
+      startGameSession();
+    });
+  }
 }
 
 // --- GAME LOOP ---
@@ -4616,21 +5004,26 @@ function gameLoop() {
   requestAnimationFrame(gameLoop);
 }
 
-// --- START ---
+// --- START GAME FUNCTION ---
+function startGameSession() {
+  if (gameState === 'title' || gameState === 'gameover' || gameState === 'victory') {
+    initAudio();
+    if (gameState === 'gameover' || gameState === 'victory') {
+      score = 0;
+      stage = 1;
+    }
+    gameState = 'playing';
+    overlay.classList.add('hidden');
+    hud.classList.remove('hidden');
+    initGame();
+  }
+}
+
+// Keyboard start (Enter key)
 window.addEventListener('keydown', e => {
   if (rebindingAction) return; // Don't handle game keys during rebind
   if (e.code === 'Enter') {
-    if (gameState === 'title' || gameState === 'gameover' || gameState === 'victory') {
-      initAudio();
-      if (gameState === 'gameover' || gameState === 'victory') {
-        score = 0;
-        stage = 1;
-      }
-      gameState = 'playing';
-      overlay.classList.add('hidden');
-      hud.classList.remove('hidden');
-      initGame();
-    }
+    startGameSession();
   }
   // Zoom controls
   if (e.code === 'Equal' || e.code === 'NumpadAdd') {
@@ -5234,6 +5627,19 @@ function resize() {
 }
 window.addEventListener('resize', resize);
 resize();
+
+// Initialize mobile touch controls
+initTouchControls();
+
+// Initialize start button
+const startBtn = document.getElementById('startBtn');
+if (startBtn) {
+  startBtn.addEventListener('click', startGameSession);
+  startBtn.addEventListener('touchend', e => {
+    e.preventDefault();
+    startGameSession();
+  });
+}
 
 gameLoop();
 </script>
