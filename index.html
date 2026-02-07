@@ -771,12 +771,125 @@
     min-height: 14px;
     margin-top: 2px;
   }
+
+  /* --- SAVE/LOAD TOAST --- */
+  .save-toast {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-80px);
+    background: rgba(0,0,0,0.9);
+    border: 2px solid #44ff44;
+    color: #44ff44;
+    padding: 8px 20px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    z-index: 9999;
+    border-radius: 6px;
+    pointer-events: none;
+    transition: transform 0.3s ease;
+  }
+  .save-toast.show { transform: translateX(-50%) translateY(0); }
+  .save-toast.error { border-color: #ff4444; color: #ff4444; }
+
+  /* --- SHARE MODAL --- */
+  .share-modal-bg {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9000;
+  }
+  .share-modal {
+    background: #111;
+    border: 2px solid #44ddff;
+    border-radius: 10px;
+    padding: 20px 28px;
+    max-width: 420px;
+    width: 90%;
+    text-align: center;
+    font-family: 'Press Start 2P', monospace;
+  }
+  .share-modal h3 { color: #44ddff; font-size: 12px; margin: 0 0 12px; }
+  .share-modal textarea {
+    width: 100%;
+    height: 60px;
+    background: #1a1a2e;
+    color: #eee;
+    border: 1px solid #444;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 10px;
+    resize: none;
+    padding: 6px;
+  }
+  .share-modal .share-btns {
+    display: flex; gap: 8px; justify-content: center; margin-top: 10px;
+  }
+  .share-modal .share-btns button {
+    padding: 6px 14px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px solid;
+  }
+
+  /* --- TOUCH LAYOUT EDITOR --- */
+  .touch-layout-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 7000;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Press Start 2P', monospace;
+  }
+  .touch-layout-panel {
+    background: #111;
+    border: 2px solid #ffaa00;
+    border-radius: 10px;
+    padding: 16px 20px;
+    max-width: 360px;
+    width: 90%;
+    text-align: center;
+    color: #eee;
+  }
+  .touch-layout-panel h3 { color: #ffaa00; font-size: 11px; margin: 0 0 10px; }
+  .touch-layout-row { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; font-size: 8px; }
+  .touch-layout-row label { color: #aaa; }
+  .touch-layout-row input[type="range"] { width: 120px; }
+  .touch-layout-row .val { color: #ffaa00; min-width: 30px; text-align: right; }
+
+  /* --- MUSIC CONTROLS --- */
+  .music-controls {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    display: flex;
+    gap: 4px;
+    z-index: 15;
+  }
+  .music-btn {
+    background: rgba(0,0,0,0.4);
+    border: 1px solid #555;
+    color: #ccc;
+    padding: 2px 6px;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 3px;
+    font-family: sans-serif;
+  }
+  .music-btn:hover { background: rgba(50,50,50,0.6); color: #fff; }
+  .music-btn.muted { color: #ff4444; }
 </style>
 </head>
 <body>
 
 <div id="gameWrapper">
   <canvas id="game"></canvas>
+  <!-- MUSIC/SFX CONTROLS -->
+  <div class="music-controls">
+    <button class="music-btn" id="musicToggle" onclick="toggleMusic()" title="Toggle Music">🎵</button>
+    <button class="music-btn" id="sfxToggle" onclick="toggleSFX()" title="Toggle SFX">🔊</button>
+  </div>
 
   <div id="hud" class="hidden">
     <div class="hud-left">
@@ -885,6 +998,10 @@
   <div class="panel-title">📊 LEADERBOARD</div>
   <div class="panel-subtitle">Top scores on this device</div>
   <div id="lbContent"></div>
+  <div style="display:flex; gap:8px; margin:10px 0; justify-content:center;">
+    <button onclick="showShareModal()" style="padding:5px 12px; font-family:'Press Start 2P',monospace; font-size:7px; background:rgba(0,50,80,0.7); color:#44ddff; border:1px solid #44ddff; border-radius:4px; cursor:pointer;">📤 SHARE SCORE</button>
+    <button onclick="showImportScoreModal()" style="padding:5px 12px; font-family:'Press Start 2P',monospace; font-size:7px; background:rgba(0,50,30,0.7); color:#44ff88; border:1px solid #44ff88; border-radius:4px; cursor:pointer;">📥 IMPORT SCORE</button>
+  </div>
   <button class="lb-clear-btn" onclick="clearLeaderboard()">CLEAR ALL SCORES</button>
 </div>
 
@@ -1008,7 +1125,73 @@
       <div class="admin-grid-info" style="margin-top:2px">Click minimap to jump camera there</div>
     </div>
   </div>
+
+  <!-- SAVE / LOAD -->
+  <div class="admin-section collapsed">
+    <div class="admin-section-title" onclick="this.parentElement.classList.toggle('collapsed')">Save / Load</div>
+    <div class="admin-section-body">
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        <button class="admin-btn" onclick="saveGameState()">💾 Save Game</button>
+        <button class="admin-btn" onclick="loadGameState()">📂 Load Game</button>
+        <button class="admin-btn danger" onclick="if(confirm('Delete saved game?')){localStorage.removeItem('contraForce_saveState');showSaveToast('Save deleted','error')}">🗑️ Delete Save</button>
+      </div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">
+        <button class="admin-btn" onclick="exportSaveFile()">⬇️ Export to File</button>
+        <button class="admin-btn" onclick="importSaveFile()">⬆️ Import from File</button>
+      </div>
+      <div class="admin-grid-info" style="margin-top:4px">Save your current game progress. Export/Import for backup.</div>
+    </div>
+  </div>
+
+  <!-- LEVEL FILE -->
+  <div class="admin-section collapsed">
+    <div class="admin-section-title" onclick="this.parentElement.classList.toggle('collapsed')">Level File I/O</div>
+    <div class="admin-section-body">
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        <button class="admin-btn" onclick="downloadLevelFile()">⬇️ Download Level</button>
+        <button class="admin-btn" onclick="uploadLevelFile()">⬆️ Upload Level</button>
+      </div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">
+        <button class="admin-btn" onclick="adminExportLevel()">📋 Copy JSON</button>
+        <button class="admin-btn" onclick="adminImportLevel()">📋 Paste JSON</button>
+      </div>
+      <div class="admin-grid-info" style="margin-top:4px">Download/upload level files. Includes terrain, enemies, powerups, treasures.</div>
+    </div>
+  </div>
+
+  <!-- AUDIO -->
+  <div class="admin-section collapsed">
+    <div class="admin-section-title" onclick="this.parentElement.classList.toggle('collapsed')">Audio</div>
+    <div class="admin-section-body">
+      <div class="admin-row"><label>Music Volume</label><input type="range" min="0" max="100" step="5" id="s_musicVol" oninput="setMusicVolume(this.value/100)"><span class="val" id="v_musicVol">60</span></div>
+      <div class="admin-row"><label>SFX Volume</label><input type="range" min="0" max="100" step="5" id="s_sfxVol" oninput="setSfxVolume(this.value/100)"><span class="val" id="v_sfxVol">80</span></div>
+      <div class="admin-row"><label>Music Enabled</label><input type="checkbox" id="s_musicEnabled" checked onchange="toggleMusic()"></div>
+      <div class="admin-row"><label>SFX Enabled</label><input type="checkbox" id="s_sfxEnabled" checked onchange="toggleSFX()"></div>
+    </div>
+  </div>
+
+  <!-- TOUCH LAYOUT -->
+  <div class="admin-section collapsed">
+    <div class="admin-section-title" onclick="this.parentElement.classList.toggle('collapsed')">Touch Controls</div>
+    <div class="admin-section-body">
+      <div class="admin-row"><label>Opacity</label><input type="range" min="20" max="100" step="5" id="s_touchOpacity" oninput="setTouchOpacity(this.value/100)"><span class="val" id="v_touchOpacity">70</span></div>
+      <div class="admin-row"><label>Button Size</label>
+        <div style="display:flex;gap:4px">
+          <button class="admin-btn" onclick="setTouchButtonSize('small')">S</button>
+          <button class="admin-btn" onclick="setTouchButtonSize('medium')">M</button>
+          <button class="admin-btn" onclick="setTouchButtonSize('large')">L</button>
+        </div>
+      </div>
+      <div class="admin-row"><label>Vibration</label><input type="checkbox" id="s_touchVibrate" checked onchange="touchVibrate=this.checked"></div>
+      <div class="admin-row"><label>Swap Sides</label><input type="checkbox" id="s_touchSwap" onchange="swapTouchSides(this.checked)"></div>
+      <div class="admin-grid-info" style="margin-top:4px">Customise touch control layout, opacity and feedback.</div>
+    </div>
+  </div>
+
 </div>
+
+<!-- SAVE TOAST -->
+<div class="save-toast" id="saveToast"></div>
 
 <script>
 // ============================================================
@@ -1186,11 +1369,16 @@ function initAudio() {
 }
 
 function playSound(type) {
-  if (!audioCtx) return;
+  if (!audioCtx || !sfxEnabled) return;
   const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.connect(gain);
-  gain.connect(audioCtx.destination);
+  const sfxGain = audioCtx.createGain();
+  const masterGain = audioCtx.createGain();
+  masterGain.gain.setValueAtTime(sfxVolume, audioCtx.currentTime);
+  osc.connect(sfxGain);
+  sfxGain.connect(masterGain);
+  masterGain.connect(audioCtx.destination);
+  // Alias for all existing case statements
+  const gain = sfxGain;
   const t = audioCtx.currentTime;
 
   switch(type) {
@@ -1316,10 +1504,614 @@ function playSound(type) {
       gain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
       osc.start(t); osc.stop(t + 0.6);
       break;
+    case 'stage_clear':
+      osc.type = 'sine';
+      // ascending victory jingle
+      osc.frequency.setValueAtTime(523, t);
+      osc.frequency.setValueAtTime(659, t + 0.12);
+      osc.frequency.setValueAtTime(784, t + 0.24);
+      osc.frequency.setValueAtTime(1047, t + 0.36);
+      gain.gain.setValueAtTime(0.18, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+      osc.start(t); osc.stop(t + 0.5);
+      break;
+    case 'menu_select':
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(800, t);
+      osc.frequency.setValueAtTime(1000, t + 0.04);
+      gain.gain.setValueAtTime(0.08, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+      osc.start(t); osc.stop(t + 0.08);
+      break;
+    case 'enemy_shoot':
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(250, t);
+      osc.frequency.exponentialRampToValueAtTime(80, t + 0.06);
+      gain.gain.setValueAtTime(0.06, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+      osc.start(t); osc.stop(t + 0.06);
+      break;
+    case 'coin':
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1200, t);
+      osc.frequency.setValueAtTime(1600, t + 0.06);
+      gain.gain.setValueAtTime(0.1, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+      osc.start(t); osc.stop(t + 0.12);
+      break;
+    case 'game_over':
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(300, t);
+      osc.frequency.exponentialRampToValueAtTime(60, t + 0.8);
+      gain.gain.setValueAtTime(0.2, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+      osc.start(t); osc.stop(t + 0.8);
+      break;
+    case 'victory':
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523, t);
+      osc.frequency.setValueAtTime(659, t + 0.15);
+      osc.frequency.setValueAtTime(784, t + 0.3);
+      osc.frequency.setValueAtTime(1047, t + 0.45);
+      gain.gain.setValueAtTime(0.18, t);
+      gain.gain.setValueAtTime(0.2, t + 0.45);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+      osc.start(t); osc.stop(t + 0.8);
+      break;
+    case 'rocket':
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(150, t);
+      osc.frequency.exponentialRampToValueAtTime(50, t + 0.2);
+      gain.gain.setValueAtTime(0.15, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+      osc.start(t); osc.stop(t + 0.2);
+      break;
+    case 'flame':
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(60, t);
+      osc.frequency.linearRampToValueAtTime(120, t + 0.05);
+      osc.frequency.linearRampToValueAtTime(40, t + 0.1);
+      gain.gain.setValueAtTime(0.08, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+      osc.start(t); osc.stop(t + 0.1);
+      break;
+    case 'homing':
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(900, t);
+      osc.frequency.exponentialRampToValueAtTime(600, t + 0.1);
+      gain.gain.setValueAtTime(0.1, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+      osc.start(t); osc.stop(t + 0.1);
+      break;
+    case 'machine':
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(500, t);
+      osc.frequency.exponentialRampToValueAtTime(200, t + 0.04);
+      gain.gain.setValueAtTime(0.08, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+      osc.start(t); osc.stop(t + 0.04);
+      break;
+    case 'wave':
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(300, t);
+      osc.frequency.linearRampToValueAtTime(600, t + 0.05);
+      osc.frequency.linearRampToValueAtTime(300, t + 0.1);
+      gain.gain.setValueAtTime(0.1, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+      osc.start(t); osc.stop(t + 0.12);
+      break;
   }
 }
 
-// --- INPUT ---
+// ============================================================
+//  MUSIC ENGINE — Procedural Chip-tune via Web Audio
+// ============================================================
+let musicEnabled = true;
+let sfxEnabled = true;
+let musicVolume = 0.6;
+let sfxVolume = 0.8;
+let musicGainNode = null;
+let musicPlaying = false;
+let musicIntervalId = null;
+let currentMusicTrack = null;
+
+// Music note helpers
+const NOTE_FREQ = {
+  C3:131, D3:147, E3:165, F3:175, G3:196, A3:220, B3:247,
+  C4:262, D4:294, E4:330, F4:349, G4:392, A4:440, B4:494,
+  C5:523, D5:587, E5:659, F5:698, G5:784, A5:880, B5:988,
+  C6:1047, R:0 // R = rest
+};
+
+// Melody tracks per music state
+const MUSIC_TRACKS = {
+  title: {
+    tempo: 140,
+    melody: ['E4','E4','R','E4','R','C4','E4','R','G4','R','R','R','G3','R','R','R',
+             'C4','R','R','G3','R','R','E3','R','R','A3','R','B3','R','A3','R','R'],
+    bass:   ['C3','R','R','G3','R','R','C3','R','E3','R','R','R','G3','R','R','R',
+             'C3','R','R','G3','R','R','C3','R','R','F3','R','G3','R','F3','R','R'],
+  },
+  action: {
+    tempo: 160,
+    melody: ['E4','E4','E5','R','E4','D4','E4','R','G4','R','A4','R','G4','E4','R','R',
+             'A4','A4','A4','R','G4','A4','R','R','E4','R','C4','R','D4','E4','R','R'],
+    bass:   ['A3','R','A3','R','A3','R','A3','R','C3','R','C3','R','C3','R','C3','R',
+             'F3','R','F3','R','E3','R','E3','R','A3','R','A3','R','A3','R','A3','R'],
+  },
+  boss: {
+    tempo: 180,
+    melody: ['C4','C4','C4','R','C4','D4','E4','R','E4','D4','C4','R','G3','R','R','R',
+             'C4','C4','B3','R','A3','B3','C4','R','G3','A3','G3','R','R','R','R','R'],
+    bass:   ['C3','R','C3','R','C3','R','C3','R','E3','R','E3','R','G3','R','G3','R',
+             'F3','R','F3','R','F3','R','F3','R','G3','R','G3','R','G3','R','G3','R'],
+  },
+  gameover: {
+    tempo: 90,
+    melody: ['E4','D4','C4','R','B3','A3','R','R'],
+    bass:   ['A3','R','F3','R','E3','A3','R','R'],
+  },
+  victory: {
+    tempo: 140,
+    melody: ['C4','E4','G4','C5','R','G4','C5','E5','R','R','C5','E5','G5','R','R','R'],
+    bass:   ['C3','R','E3','R','G3','R','C3','R','E3','R','G3','R','C3','R','R','R'],
+  },
+};
+
+function startMusic(trackName) {
+  if (!audioCtx || !musicEnabled) return;
+  stopMusic();
+  const track = MUSIC_TRACKS[trackName];
+  if (!track) return;
+  currentMusicTrack = trackName;
+  musicPlaying = true;
+
+  if (!musicGainNode) {
+    musicGainNode = audioCtx.createGain();
+    musicGainNode.connect(audioCtx.destination);
+  }
+  musicGainNode.gain.setValueAtTime(musicVolume * 0.25, audioCtx.currentTime);
+
+  let step = 0;
+  const secPerBeat = 60 / track.tempo;
+
+  musicIntervalId = setInterval(() => {
+    if (!audioCtx || !musicEnabled || !musicPlaying) { stopMusic(); return; }
+    const t = audioCtx.currentTime;
+
+    // Melody
+    const noteKey = track.melody[step % track.melody.length];
+    const freq = NOTE_FREQ[noteKey];
+    if (freq > 0) {
+      const osc = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(freq, t);
+      g.gain.setValueAtTime(musicVolume * 0.15, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + secPerBeat * 0.9);
+      osc.connect(g); g.connect(musicGainNode);
+      osc.start(t); osc.stop(t + secPerBeat);
+    }
+
+    // Bass
+    const bassKey = track.bass[step % track.bass.length];
+    const bassFreq = NOTE_FREQ[bassKey];
+    if (bassFreq > 0) {
+      const osc2 = audioCtx.createOscillator();
+      const g2 = audioCtx.createGain();
+      osc2.type = 'triangle';
+      osc2.frequency.setValueAtTime(bassFreq, t);
+      g2.gain.setValueAtTime(musicVolume * 0.12, t);
+      g2.gain.exponentialRampToValueAtTime(0.001, t + secPerBeat * 0.9);
+      osc2.connect(g2); g2.connect(musicGainNode);
+      osc2.start(t); osc2.stop(t + secPerBeat);
+    }
+
+    step++;
+    // Loop
+    if (step >= Math.max(track.melody.length, track.bass.length)) step = 0;
+  }, secPerBeat * 1000);
+}
+
+function stopMusic() {
+  musicPlaying = false;
+  if (musicIntervalId) { clearInterval(musicIntervalId); musicIntervalId = null; }
+  currentMusicTrack = null;
+}
+
+function toggleMusic() {
+  musicEnabled = !musicEnabled;
+  const btn = document.getElementById('musicToggle');
+  if (btn) { btn.textContent = musicEnabled ? '🎵' : '🎵'; btn.classList.toggle('muted', !musicEnabled); }
+  const cb = document.getElementById('s_musicEnabled');
+  if (cb) cb.checked = musicEnabled;
+  if (!musicEnabled) stopMusic();
+  try { localStorage.setItem('contraForce_musicEnabled', musicEnabled ? '1' : '0'); } catch(e) {}
+}
+
+function toggleSFX() {
+  sfxEnabled = !sfxEnabled;
+  const btn = document.getElementById('sfxToggle');
+  if (btn) { btn.textContent = sfxEnabled ? '🔊' : '🔇'; btn.classList.toggle('muted', !sfxEnabled); }
+  const cb = document.getElementById('s_sfxEnabled');
+  if (cb) cb.checked = sfxEnabled;
+  try { localStorage.setItem('contraForce_sfxEnabled', sfxEnabled ? '1' : '0'); } catch(e) {}
+}
+
+function setMusicVolume(v) {
+  musicVolume = Math.max(0, Math.min(1, v));
+  if (musicGainNode) musicGainNode.gain.setValueAtTime(musicVolume * 0.25, audioCtx.currentTime);
+  const el = document.getElementById('v_musicVol');
+  if (el) el.textContent = Math.round(musicVolume * 100);
+  try { localStorage.setItem('contraForce_musicVol', String(musicVolume)); } catch(e) {}
+}
+
+function setSfxVolume(v) {
+  sfxVolume = Math.max(0, Math.min(1, v));
+  const el = document.getElementById('v_sfxVol');
+  if (el) el.textContent = Math.round(sfxVolume * 100);
+  try { localStorage.setItem('contraForce_sfxVol', String(sfxVolume)); } catch(e) {}
+}
+
+// Load audio prefs
+(function loadAudioPrefs(){
+  try {
+    const me = localStorage.getItem('contraForce_musicEnabled');
+    if (me === '0') { musicEnabled = false; }
+    const se = localStorage.getItem('contraForce_sfxEnabled');
+    if (se === '0') { sfxEnabled = false; }
+    const mv = localStorage.getItem('contraForce_musicVol');
+    if (mv) musicVolume = parseFloat(mv);
+    const sv = localStorage.getItem('contraForce_sfxVol');
+    if (sv) sfxVolume = parseFloat(sv);
+  } catch(e) {}
+})();
+
+// Update music based on game state (called from game loop)
+function updateMusic() {
+  if (!musicEnabled || !audioCtx) return;
+  let desired = null;
+  if (gameState === 'title') desired = 'title';
+  else if (gameState === 'playing') {
+    // Check if boss is active and on screen
+    const bossActive = enemies.some(e => e.isBoss && e.active);
+    desired = bossActive ? 'boss' : 'action';
+  } else if (gameState === 'gameover') desired = 'gameover';
+  else if (gameState === 'victory') desired = 'victory';
+  if (desired && desired !== currentMusicTrack) startMusic(desired);
+}
+
+// ============================================================
+//  SAVE / LOAD GAME STATE
+// ============================================================
+function showSaveToast(msg, type) {
+  const el = document.getElementById('saveToast');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'save-toast show' + (type === 'error' ? ' error' : '');
+  setTimeout(() => { el.className = 'save-toast'; }, 2000);
+}
+
+function getFullGameState() {
+  return {
+    version: 2,
+    timestamp: Date.now(),
+    score, stage, gameState: 'playing',
+    currentDifficulty, diffSettings: { ...diffSettings },
+    player: serializePlayer(player),
+    player2: (coopMode && player2) ? serializePlayer(player2) : null,
+    coopMode,
+    level: { map: level.map, cols: level.cols, rows: level.rows, groundRow: level.groundRow, treasureMap: level.treasureMap || {} },
+    enemies: enemies.map(e => ({...e})),
+    powerups: powerups.map(p => ({...p})),
+    objects: objects.map(o => ({...o})),
+    treasureItems: treasureItems.map(t => ({...t})),
+    camX, camY, zoom,
+    runStats: { ...runStats, weaponsCollected: [...runStats.weaponsCollected] },
+    godMode, editorMode, playerSpeedBoost,
+  };
+}
+
+function serializePlayer(p) {
+  if (!p) return null;
+  const s = {};
+  for (const k in p) {
+    if (k === 'weapon') { s._weaponType = p.weapon.type || p.weapon.name; continue; }
+    if (k === 'grapple') { s.grapple = p.grapple ? {...p.grapple} : null; continue; }
+    s[k] = p[k];
+  }
+  return s;
+}
+
+function deserializePlayer(s) {
+  if (!s) return null;
+  const p = {...s};
+  // Restore weapon
+  if (s._weaponType) {
+    const wName = s._weaponType.toUpperCase();
+    p.weapon = WEAPONS[wName] || WEAPONS.RIFLE;
+    delete p._weaponType;
+  } else {
+    p.weapon = WEAPONS.RIFLE;
+  }
+  return p;
+}
+
+function saveGameState() {
+  if (gameState !== 'playing') { showSaveToast('Can only save during gameplay', 'error'); return; }
+  try {
+    const state = getFullGameState();
+    localStorage.setItem('contraForce_saveState', JSON.stringify(state));
+    showSaveToast('💾 Game Saved!');
+    playSound('powerup');
+  } catch(e) { showSaveToast('Save failed: ' + e.message, 'error'); }
+}
+
+function loadGameState() {
+  try {
+    const raw = localStorage.getItem('contraForce_saveState');
+    if (!raw) { showSaveToast('No saved game found', 'error'); return; }
+    const state = JSON.parse(raw);
+    restoreGameState(state);
+    showSaveToast('📂 Game Loaded!');
+    playSound('powerup');
+  } catch(e) { showSaveToast('Load failed: ' + e.message, 'error'); }
+}
+
+function restoreGameState(state) {
+  initAudio();
+  score = state.score || 0;
+  stage = state.stage || 1;
+  if (state.currentDifficulty) setDifficulty(state.currentDifficulty);
+  if (state.diffSettings) diffSettings = { ...diffSettings, ...state.diffSettings };
+
+  // Restore level
+  if (state.level) {
+    level = { map: state.level.map, cols: state.level.cols, rows: state.level.rows, groundRow: state.level.groundRow, treasureMap: state.level.treasureMap || {} };
+  } else {
+    level = generateLevel(stage);
+  }
+
+  // Restore player
+  player = deserializePlayer(state.player) || createPlayer(60);
+  coopMode = !!state.coopMode;
+  if (coopMode && state.player2) {
+    player2 = deserializePlayer(state.player2);
+  } else {
+    player2 = coopMode ? createPlayer(100) : null;
+  }
+
+  // Restore entity arrays (safe defaults)
+  enemies = state.enemies || [];
+  powerups = state.powerups || [];
+  objects = state.objects || [];
+  treasureItems = state.treasureItems || [];
+  bullets = [];
+  enemyBullets = [];
+  particles = [];
+  popups = [];
+
+  camX = state.camX || 0;
+  camY = state.camY || 0;
+  zoom = state.zoom || 1;
+  godMode = !!state.godMode;
+  editorMode = !!state.editorMode;
+  playerSpeedBoost = state.playerSpeedBoost || 0;
+
+  if (state.runStats) {
+    Object.assign(runStats, state.runStats);
+    runStats.weaponsCollected = new Set(state.runStats.weaponsCollected || []);
+  }
+
+  gameState = 'playing';
+  overlay.classList.add('hidden');
+  hud.classList.remove('hidden');
+  updateAchHud();
+}
+
+function exportSaveFile() {
+  if (gameState !== 'playing') { showSaveToast('Can only export during gameplay', 'error'); return; }
+  const state = getFullGameState();
+  const blob = new Blob([JSON.stringify(state)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `contra_save_stage${stage}_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showSaveToast('⬇️ Save exported!');
+}
+
+function importSaveFile() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const state = JSON.parse(ev.target.result);
+        restoreGameState(state);
+        showSaveToast('📂 Save imported!');
+      } catch(err) { showSaveToast('Invalid save file', 'error'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+// Quick save/load with F5/F9
+window.addEventListener('keydown', e => {
+  if (e.code === 'F5' && !e.ctrlKey && !e.altKey) { e.preventDefault(); saveGameState(); }
+  if (e.code === 'F9' && !e.ctrlKey && !e.altKey) { e.preventDefault(); loadGameState(); }
+});
+
+// ============================================================
+//  LEVEL FILE I/O (Download / Upload)
+// ============================================================
+function getFullLevelData() {
+  return {
+    version: 1,
+    stage,
+    level: { map: level.map, cols: level.cols, rows: level.rows, groundRow: level.groundRow, treasureMap: level.treasureMap || {} },
+    enemies: enemies.map(e => ({...e})),
+    powerups: powerups.map(p => ({...p})),
+    objects: objects.map(o => ({...o})),
+  };
+}
+
+function downloadLevelFile() {
+  if (!level) { showSaveToast('No level loaded', 'error'); return; }
+  const data = getFullLevelData();
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `contra_level_${stage}_${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showSaveToast('⬇️ Level exported!');
+}
+
+function uploadLevelFile() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (data.level && data.level.map) {
+          level.map = data.level.map;
+          level.cols = data.level.cols;
+          level.rows = data.level.rows;
+          level.groundRow = data.level.groundRow || level.rows - 2;
+          level.treasureMap = data.level.treasureMap || {};
+          if (data.enemies) enemies = data.enemies;
+          if (data.powerups) powerups = data.powerups;
+          if (data.objects) objects = data.objects;
+          showSaveToast('⬆️ Level imported!');
+        } else { showSaveToast('Invalid level file', 'error'); }
+      } catch(err) { showSaveToast('Parse error: ' + err.message, 'error'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+// ============================================================
+//  SHAREABLE LEADERBOARD — Encode/Decode Score Codes
+// ============================================================
+function encodeScoreCode(entry) {
+  const data = { s: entry.score, st: entry.stage, k: entry.kills, d: Math.round(entry.duration), dt: entry.date, o: entry.outcome, df: entry.difficulty || 'normal' };
+  try { return btoa(JSON.stringify(data)); } catch(e) { return ''; }
+}
+
+function decodeScoreCode(code) {
+  try {
+    const data = JSON.parse(atob(code.trim()));
+    return { score: data.s, stage: data.st, kills: data.k, duration: data.d, date: data.dt, outcome: data.o, difficulty: data.df || 'normal', imported: true };
+  } catch(e) { return null; }
+}
+
+function showShareModal() {
+  // Get latest leaderboard entry
+  const lb = getLeaderboard();
+  const latest = lb.find(e => e.isLatest);
+  if (!latest) { showSaveToast('No score to share', 'error'); return; }
+  const code = encodeScoreCode(latest);
+  const bg = document.createElement('div');
+  bg.className = 'share-modal-bg';
+  bg.innerHTML = `<div class="share-modal">
+    <h3>📤 SHARE SCORE</h3>
+    <p style="font-size:8px;color:#aaa;margin:0 0 8px">Copy this code and share with friends!</p>
+    <textarea id="shareCode" readonly>${code}</textarea>
+    <div class="share-btns">
+      <button onclick="navigator.clipboard.writeText(document.getElementById('shareCode').value);showSaveToast('📋 Copied!')" style="background:#004466;color:#44ddff;border-color:#44ddff">📋 COPY</button>
+      <button onclick="this.closest('.share-modal-bg').remove()" style="background:#333;color:#aaa;border-color:#666">CLOSE</button>
+    </div>
+  </div>`;
+  bg.addEventListener('click', e => { if (e.target === bg) bg.remove(); });
+  document.body.appendChild(bg);
+}
+
+function showImportScoreModal() {
+  const bg = document.createElement('div');
+  bg.className = 'share-modal-bg';
+  bg.innerHTML = `<div class="share-modal">
+    <h3>📥 IMPORT SCORE</h3>
+    <p style="font-size:8px;color:#aaa;margin:0 0 8px">Paste a shared score code below:</p>
+    <textarea id="importCode" placeholder="Paste score code here..."></textarea>
+    <div class="share-btns">
+      <button onclick="importScoreFromModal()" style="background:#003322;color:#44ff88;border-color:#44ff88">📥 IMPORT</button>
+      <button onclick="this.closest('.share-modal-bg').remove()" style="background:#333;color:#aaa;border-color:#666">CLOSE</button>
+    </div>
+  </div>`;
+  bg.addEventListener('click', e => { if (e.target === bg) bg.remove(); });
+  document.body.appendChild(bg);
+}
+
+function importScoreFromModal() {
+  const ta = document.getElementById('importCode');
+  if (!ta || !ta.value.trim()) { showSaveToast('No code entered', 'error'); return; }
+  const entry = decodeScoreCode(ta.value);
+  if (!entry) { showSaveToast('Invalid score code', 'error'); return; }
+  saveLeaderboardEntry(entry);
+  showSaveToast('📥 Score imported!');
+  ta.closest('.share-modal-bg').remove();
+  renderLeaderboard();
+}
+
+// ============================================================
+//  TOUCH CONTROLS ENHANCEMENTS
+// ============================================================
+let touchVibrate = true;
+let touchOpacity = 0.7;
+let touchSwapped = false;
+
+function setTouchOpacity(v) {
+  touchOpacity = v;
+  const tc = document.getElementById('touchControls');
+  if (tc) tc.style.opacity = v;
+  const el = document.getElementById('v_touchOpacity');
+  if (el) el.textContent = Math.round(v * 100);
+  try { localStorage.setItem('contraForce_touchOpacity', String(v)); } catch(e) {}
+}
+
+function swapTouchSides(swap) {
+  touchSwapped = swap;
+  const tc = document.getElementById('touchControls');
+  if (!tc) return;
+  const dpad = tc.querySelector('.touch-dpad');
+  const actions = tc.querySelector('.touch-actions');
+  if (dpad && actions) {
+    if (swap) {
+      dpad.style.order = '2';
+      dpad.style.left = 'auto'; dpad.style.right = '20px';
+      actions.style.order = '1';
+      actions.style.right = 'auto'; actions.style.left = '20px';
+    } else {
+      dpad.style.order = '';
+      dpad.style.left = ''; dpad.style.right = '';
+      actions.style.order = '';
+      actions.style.right = ''; actions.style.left = '';
+    }
+  }
+  try { localStorage.setItem('contraForce_touchSwapped', swap ? '1' : '0'); } catch(e) {}
+}
+
+// Load touch prefs
+(function loadTouchPrefs(){
+  try {
+    const op = localStorage.getItem('contraForce_touchOpacity');
+    if (op) touchOpacity = parseFloat(op);
+    const sw = localStorage.getItem('contraForce_touchSwapped');
+    if (sw === '1') touchSwapped = true;
+  } catch(e) {}
+})();
 const keys = {};
 
 // Configurable keybinds: each action has an array of key codes
@@ -1529,6 +2321,10 @@ function initTouchControls() {
   // Prevent default touch behaviors to avoid scrolling
   touchControls.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
   touchControls.addEventListener('touchstart', e => e.stopPropagation(), { passive: false });
+
+  // Apply saved touch preferences
+  setTouchOpacity(touchOpacity);
+  if (touchSwapped) swapTouchSides(true);
 }
 
 // --- GAME STATE ---
@@ -1990,8 +2786,32 @@ const THEMES = {
     tileTop: '#aa4444', tileFill: '#664444', tileInner: '#553333', tileLine: '#442222',
     stars: 60, starBright: 0.8,
   },
+  8: {
+    name: 'VOLCANO', cols: 190,
+    sky: [['#2e0a00',0],['#5e1a00',0.3],['#8e2a00',0.6],['#2e0a00',1]],
+    mountains: ['#4e1a00','#3e1500','#2e1000'],
+    tileTop: '#883311', tileFill: '#552211', tileInner: '#441a0a', tileLine: '#331100',
+    stars: 10, starBright: 0.3,
+    lava: true,
+  },
+  9: {
+    name: 'CYBER CORE', cols: 200,
+    sky: [['#000a1e',0],['#001a3e',0.3],['#002a5e',0.6],['#000a1e',1]],
+    mountains: ['#001a2e','#001528','#001020'],
+    tileTop: '#00ccaa', tileFill: '#004444', tileInner: '#003333', tileLine: '#002222',
+    stars: 120, starBright: 0.6,
+    cyber: true,
+  },
+  10: {
+    name: 'ALIEN HIVE', cols: 220,
+    sky: [['#0a001e',0],['#1a0040',0.3],['#2a0060',0.5],['#1a0030',0.8],['#0a001e',1]],
+    mountains: ['#1a0030','#150028','#100020'],
+    tileTop: '#8844aa', tileFill: '#443366', tileInner: '#332255', tileLine: '#221144',
+    stars: 80, starBright: 0.9,
+    alien: true,
+  },
 };
-const MAX_STAGE = 7;
+const MAX_STAGE = 10;
 
 function getTheme(s) { return THEMES[s] || THEMES[1]; }
 
@@ -2101,6 +2921,125 @@ function generateLevel(stageNum) {
           if (c + p < cols && platRow >= 1) map[platRow][c + p] = 1;
         }
         c += platW + 2;
+      }
+    }
+  }
+
+  // Volcano: jagged volcanic pillars and lava pools
+  if (theme.lava) {
+    // Volcanic pillars
+    for (let c = 12; c < cols - 12; c++) {
+      if (rng() < 0.04) {
+        const pillarH = 3 + Math.floor(rng() * 4);
+        const pillarW = 1 + Math.floor(rng() * 2);
+        for (let h = 0; h < pillarH; h++) {
+          for (let w = 0; w < pillarW; w++) {
+            if (c + w < cols && groundRow - 1 - h >= 0)
+              map[groundRow - 1 - h][c + w] = 1;
+          }
+        }
+        c += pillarW + 4;
+      }
+    }
+    // Lava flow gaps (wider pits that will fill with lava)
+    for (let c = 20; c < cols - 25; c++) {
+      if (rng() < 0.04) {
+        const lavaW = 3 + Math.floor(rng() * 4);
+        for (let g = 0; g < lavaW; g++) {
+          if (c + g < cols) {
+            for (let r = groundRow; r < rows; r++) map[r][c + g] = 0;
+          }
+        }
+        c += lavaW + 6;
+      }
+    }
+  }
+
+  // Cyber Core: geometric grid platforms and data columns
+  if (theme.cyber) {
+    // Grid platforms (evenly spaced)
+    for (let c = 10; c < cols - 10; c += 8 + Math.floor(rng() * 6)) {
+      if (rng() < 0.55) {
+        const platRow = groundRow - 3 - Math.floor(rng() * 5);
+        const platW = 3 + Math.floor(rng() * 2);
+        for (let p = 0; p < platW; p++) {
+          if (c + p < cols && platRow >= 1) map[platRow][c + p] = 1;
+        }
+      }
+    }
+    // Data columns (thin tall pillars)
+    for (let c = 15; c < cols - 15; c++) {
+      if (rng() < 0.02) {
+        const colH = 4 + Math.floor(rng() * 4);
+        for (let h = 0; h < colH; h++) {
+          if (groundRow - 1 - h >= 0) map[groundRow - 1 - h][c] = 1;
+        }
+        c += 6;
+      }
+    }
+    // Circuit gaps (precise 2-wide pits)
+    for (let c = 18; c < cols - 18; c++) {
+      if (rng() < 0.03) {
+        for (let r = groundRow; r < rows; r++) {
+          map[r][c] = 0;
+          if (c + 1 < cols) map[r][c + 1] = 0;
+        }
+        c += 8;
+      }
+    }
+  }
+
+  // Alien Hive: organic bumpy terrain and hive chambers
+  if (theme.alien) {
+    // Organic bumps (sinusoidal raised terrain)
+    for (let c = 8; c < cols - 10; c++) {
+      if (rng() < 0.05) {
+        const bumpW = 8 + Math.floor(rng() * 10);
+        const bumpH = 2 + Math.floor(rng() * 2);
+        for (let w = 0; w < bumpW; w++) {
+          const h = Math.round(Math.sin(w / bumpW * Math.PI) * bumpH);
+          for (let dh = 0; dh < h; dh++) {
+            if (c + w < cols && groundRow - 1 - dh >= 0)
+              map[groundRow - 1 - dh][c + w] = 1;
+          }
+        }
+        c += bumpW + 2;
+      }
+    }
+    // Hive chambers (above-ground hollowed structures)
+    for (let c = 20; c < cols - 25; c++) {
+      if (rng() < 0.025) {
+        const chW = 5 + Math.floor(rng() * 4);
+        const chH = 4 + Math.floor(rng() * 3);
+        // Build walls and roof
+        for (let w = 0; w < chW; w++) {
+          if (c + w < cols && groundRow - chH >= 0)
+            map[groundRow - chH][c + w] = 1; // roof
+        }
+        for (let h = 0; h < chH; h++) {
+          if (groundRow - h >= 0) {
+            if (c < cols) map[groundRow - h][c] = 1; // left wall
+            if (c + chW - 1 < cols) map[groundRow - h][c + chW - 1] = 1; // right wall
+          }
+        }
+        // Entrance gap
+        const mid = c + Math.floor(chW / 2);
+        if (mid < cols) map[groundRow - 1][mid] = 0;
+        c += chW + 6;
+      }
+    }
+    // Hanging platforms (stalactite-like)
+    for (let c = 12; c < cols - 12; c++) {
+      if (rng() < 0.03) {
+        const platRow = groundRow - 5 - Math.floor(rng() * 4);
+        const platW = 2 + Math.floor(rng() * 3);
+        for (let p = 0; p < platW; p++) {
+          if (c + p < cols && platRow >= 1) {
+            map[platRow][c + p] = 1;
+            if (platRow - 1 >= 0) map[platRow - 1][c + p] = 1; // thicker
+          }
+        }
+        c += platW + 4;
       }
     }
   }
@@ -2375,6 +3314,15 @@ function generateLevel(stageNum) {
   // --- WATER FILL ---
   // Water only at surface level (in gaps)
   if (theme.water) {
+    for (let c = 0; c < cols; c++) {
+      if (map[groundRow][c] === 0) map[groundRow][c] = 3;
+      if (groundRow + 1 < rows && map[groundRow + 1][c] === 0) map[groundRow + 1][c] = 3;
+    }
+  }
+
+  // --- LAVA FILL ---
+  // Lava fills surface gaps in volcano theme (uses tile 3 visually, rendered as lava by theme)
+  if (theme.lava) {
     for (let c = 0; c < cols; c++) {
       if (map[groundRow][c] === 0) map[groundRow][c] = 3;
       if (groundRow + 1 < rows && map[groundRow + 1][c] === 0) map[groundRow + 1][c] = 3;
@@ -3264,27 +4212,45 @@ function drawTiles(level) {
       const ty = r * TILE;
 
       if (tileVal === 3) {
-        // --- WATER TILE ---
+        // --- WATER / LAVA TILE ---
         const wave = Math.sin((c * 0.8 + Date.now() * 0.003)) * 3;
-        ctx.globalAlpha = 0.55;
-        ctx.fillStyle = '#0055aa';
-        ctx.fillRect(tx, ty + wave, TILE, TILE);
-        ctx.fillStyle = '#44aaff';
-        ctx.globalAlpha = 0.2;
-        ctx.fillRect(tx, ty + wave, TILE, 3);
-        // Shimmer
-        ctx.fillStyle = '#88ddff';
-        ctx.globalAlpha = 0.15 + Math.sin(Date.now() * 0.005 + c) * 0.1;
-        ctx.fillRect(tx + (c * 7 % 20), ty + wave + 5, 8, 2);
-        ctx.globalAlpha = 1;
+        if (theme.lava) {
+          // Lava rendering
+          ctx.globalAlpha = 0.75;
+          const lavaFlicker = Math.sin(Date.now() * 0.006 + c * 1.2) * 0.1;
+          ctx.fillStyle = '#cc3300';
+          ctx.fillRect(tx, ty + wave * 0.5, TILE, TILE);
+          ctx.fillStyle = '#ff6600';
+          ctx.globalAlpha = 0.5 + lavaFlicker;
+          ctx.fillRect(tx, ty + wave * 0.5, TILE, 5);
+          // Lava glow
+          ctx.fillStyle = '#ffaa00';
+          ctx.globalAlpha = 0.2 + Math.sin(Date.now() * 0.008 + c * 0.7) * 0.15;
+          ctx.fillRect(tx + (c * 5 % 16), ty + wave * 0.5 + 3, 10, 3);
+          ctx.globalAlpha = 1;
+        } else {
+          // Water rendering
+          ctx.globalAlpha = 0.55;
+          ctx.fillStyle = '#0055aa';
+          ctx.fillRect(tx, ty + wave, TILE, TILE);
+          ctx.fillStyle = '#44aaff';
+          ctx.globalAlpha = 0.2;
+          ctx.fillRect(tx, ty + wave, TILE, 3);
+          // Shimmer
+          ctx.fillStyle = '#88ddff';
+          ctx.globalAlpha = 0.15 + Math.sin(Date.now() * 0.005 + c) * 0.1;
+          ctx.fillRect(tx + (c * 7 % 20), ty + wave + 5, 8, 2);
+          ctx.globalAlpha = 1;
+        }
 
       } else if (tileVal === 2) {
         // --- LADDER ---
-        const ladderMetal = theme.space || theme.snow;
-        const railColor = ladderMetal ? '#8888aa' : '#8B6914';
-        const railHL = ladderMetal ? '#aaaacc' : '#A87D20';
-        const rungColor = ladderMetal ? '#7777aa' : '#9B7418';
-        const rungHL = ladderMetal ? '#9999bb' : '#B8891E';
+        const ladderMetal = theme.space || theme.snow || theme.cyber;
+        const ladderOrganic = theme.alien;
+        const railColor = ladderMetal ? '#8888aa' : (ladderOrganic ? '#6b3a7d' : (theme.lava ? '#8B4513' : '#8B6914'));
+        const railHL = ladderMetal ? '#aaaacc' : (ladderOrganic ? '#8855aa' : (theme.lava ? '#A0522D' : '#A87D20'));
+        const rungColor = ladderMetal ? '#7777aa' : (ladderOrganic ? '#5a2d6a' : (theme.lava ? '#7B3F00' : '#9B7418'));
+        const rungHL = ladderMetal ? '#9999bb' : (ladderOrganic ? '#7744aa' : (theme.lava ? '#8B5A2B' : '#B8891E'));
 
         ctx.fillStyle = railColor;
         ctx.fillRect(tx + 2, ty, 4, TILE);
@@ -3342,6 +4308,39 @@ function drawTiles(level) {
             // Sandy cracks
             ctx.fillRect(tx + TILE * 0.3, ty + 2, 1, TILE * 0.6);
             ctx.fillRect(tx + TILE * 0.7, ty + TILE * 0.3, 1, TILE * 0.5);
+          } else if (theme.lava) {
+            // Volcanic cracks with glow
+            ctx.fillRect(tx + TILE * 0.4, ty, 1, TILE);
+            ctx.fillRect(tx, ty + TILE * 0.6, TILE, 1);
+            if ((r + c) % 3 === 0) {
+              ctx.fillStyle = 'rgba(255,100,0,0.08)';
+              ctx.fillRect(tx + 2, ty + 2, TILE - 4, TILE - 4);
+            }
+          } else if (theme.cyber) {
+            // Circuit board pattern
+            ctx.fillRect(tx, ty, TILE, 1);
+            ctx.fillRect(tx, ty, 1, TILE);
+            ctx.fillRect(tx + TILE - 1, ty, 1, TILE);
+            ctx.fillRect(tx, ty + TILE - 1, TILE, 1);
+            // Circuit trace
+            if ((r + c) % 3 === 0) {
+              ctx.fillStyle = 'rgba(0,255,200,0.1)';
+              ctx.fillRect(tx + 3, ty + TILE / 2, TILE - 6, 1);
+            }
+            if ((r * 3 + c) % 5 === 0) {
+              ctx.fillStyle = 'rgba(0,200,255,0.12)';
+              ctx.fillRect(tx + TILE / 2, ty + 3, 1, TILE - 6);
+            }
+          } else if (theme.alien) {
+            // Organic texture
+            const organicOff = (r * 7 + c * 11) % 13;
+            ctx.fillRect(tx + organicOff, ty + 3, 2, TILE * 0.4);
+            ctx.fillRect(tx + 2, ty + organicOff, TILE * 0.5, 1);
+            // Bioluminescent spots
+            if ((r + c) % 4 === 0) {
+              ctx.fillStyle = 'rgba(180,0,255,0.1)';
+              ctx.fillRect(tx + 4, ty + 4, 4, 4);
+            }
           } else {
             ctx.fillRect(tx + TILE / 2, ty, 1, TILE);
             ctx.fillRect(tx, ty + TILE / 2, TILE, 1);
@@ -3473,6 +4472,7 @@ function update() {
     } else {
       submitScore('gameover');
       gameState = 'gameover';
+      playSound('game_over');
       showOverlay('GAME OVER', `FINAL SCORE: ${score}`, 'PRESS ENTER TO RESTART');
       return;
     }
@@ -3483,6 +4483,7 @@ function update() {
     } else {
       submitScore('gameover');
       gameState = 'gameover';
+      playSound('game_over');
       showOverlay('GAME OVER', `FINAL SCORE: ${score}`, 'PRESS ENTER TO RESTART');
       return;
     }
@@ -4552,6 +5553,7 @@ function updatePlayer(p, getLeft, getRight, getUp, getDown, getJump, getJumpKey,
             slowMo = 60;
             setTimeout(() => {
               if (stage < MAX_STAGE) {
+                playSound('stage_clear');
                 // Check speed + untouchable achievements before advancing
                 const stageElapsed = (Date.now() - stageStartTime) / 1000;
                 runStats.stagesCleared++;
@@ -4563,6 +5565,7 @@ function updatePlayer(p, getLeft, getRight, getUp, getDown, getJump, getJumpKey,
                 stage++;
                 initGame();
               } else {
+                playSound('victory');
                 runStats.stagesCleared++;
                 if (runStats.stageDeaths === 0) unlockAchievement('untouchable');
                 if (runStats.noDeathRun) unlockAchievement('flawless');
@@ -4806,10 +5809,14 @@ function updateEnemiesAndBullets() {
     // Boss movement
     if (e.isBoss) {
       e.phaseTimer++;
-      if (e.phaseTimer > 120) { e.phase = (e.phase + 1) % 3; e.phaseTimer = 0; }
+      const numPhases = stage >= 8 ? 5 : (stage >= 5 ? 4 : 3);
+      const phaseDuration = Math.max(60, 120 - stage * 5);
+      if (e.phaseTimer > phaseDuration) { e.phase = (e.phase + 1) % numPhases; e.phaseTimer = 0; }
 
-      if (e.phase === 0) {
-        const nextBossX = e.x + e.speed * e.dir;
+      // Movement — phases 0 & 3 patrol, higher stages also charge
+      if (e.phase === 0 || e.phase === 3) {
+        const spd = e.phase === 3 ? e.speed * 2 : e.speed;
+        const nextBossX = e.x + spd * e.dir;
         const bossWallX = e.dir > 0 ? nextBossX + e.w : nextBossX;
         let bossBlocked = false;
         for (let checkY = e.y + 2; checkY < e.y + e.h - 2; checkY += 8) {
@@ -4820,6 +5827,11 @@ function updateEnemiesAndBullets() {
         } else {
           e.x = nextBossX;
         }
+      }
+      // Phase 4: boss jump (stages 8+)
+      if (e.phase === 4 && e.onGround && e.phaseTimer === 1) {
+        e.vy = jumpForce * 0.8;
+        e.onGround = false;
       }
       e.facing = p.x < e.x ? -1 : 1;
     }
@@ -4842,45 +5854,61 @@ function updateEnemiesAndBullets() {
         const angle = Math.atan2(dy, dx);
 
         if (e.isBoss) {
-          // Boss fires multiple patterns
+          // Boss fires stage-dependent attack patterns
+          const bx = e.x + (e.facing === -1 ? -4 : e.w + 4);
+          const cx = e.x + e.w / 2;
+          const cy = e.y + e.h / 2;
+          playSound('enemy_shoot');
+
           if (e.phase === 0) {
-            for (let i = -2; i <= 2; i++) {
+            // Spread fan — more bullets at higher stages
+            const fanCount = 2 + Math.min(3, Math.floor(stage / 3));
+            for (let i = -fanCount; i <= fanCount; i++) {
               enemyBullets.push({
-                x: e.x + (e.facing === -1 ? -4 : e.w + 4),
-                y: e.y + 25,
-                vx: Math.cos(angle + i * 0.2) * enemyBulletSpeed,
-                vy: Math.sin(angle + i * 0.2) * enemyBulletSpeed,
+                x: bx, y: e.y + 25,
+                vx: Math.cos(angle + i * 0.18) * enemyBulletSpeed,
+                vy: Math.sin(angle + i * 0.18) * enemyBulletSpeed,
                 life: 120,
               });
             }
           } else if (e.phase === 1) {
-            for (let i = 0; i < 8; i++) {
-              const a = (Math.PI * 2 / 8) * i + Date.now() * 0.002;
+            // Radial burst — bullet count scales with stage
+            const burstCount = 8 + Math.min(8, stage);
+            for (let i = 0; i < burstCount; i++) {
+              const a = (Math.PI * 2 / burstCount) * i + Date.now() * 0.002;
+              enemyBullets.push({ x: cx, y: cy, vx: Math.cos(a) * 3, vy: Math.sin(a) * 3, life: 90 });
+            }
+          } else if (e.phase === 2) {
+            // Aimed fast double → triple at stage 6+
+            const shotCount = stage >= 6 ? 3 : 2;
+            for (let s = 0; s < shotCount; s++) {
               enemyBullets.push({
-                x: e.x + e.w / 2,
-                y: e.y + e.h / 2,
-                vx: Math.cos(a) * 3,
-                vy: Math.sin(a) * 3,
-                life: 90,
+                x: bx, y: e.y + 20 + s * 15,
+                vx: Math.cos(angle) * enemyBulletSpeed * 1.5,
+                vy: Math.sin(angle) * enemyBulletSpeed * 1.5,
+                life: 150,
               });
             }
-          } else {
-            enemyBullets.push({
-              x: e.x + (e.facing === -1 ? -4 : e.w + 4),
-              y: e.y + 20,
-              vx: Math.cos(angle) * enemyBulletSpeed * 1.5,
-              vy: Math.sin(angle) * enemyBulletSpeed * 1.5,
-              life: 150,
-            });
-            enemyBullets.push({
-              x: e.x + (e.facing === -1 ? -4 : e.w + 4),
-              y: e.y + 35,
-              vx: Math.cos(angle) * enemyBulletSpeed * 1.5,
-              vy: Math.sin(angle) * enemyBulletSpeed * 1.5,
-              life: 150,
-            });
+          } else if (e.phase === 3) {
+            // Charge + ground wave (stages 5+): low bullets along ground
+            for (let i = 0; i < 6; i++) {
+              enemyBullets.push({
+                x: cx + (i - 3) * 20, y: e.y + e.h - 8,
+                vx: e.facing * (2 + i * 0.5), vy: 0, life: 100,
+              });
+            }
+          } else if (e.phase === 4) {
+            // Aerial bombardment (stages 8+): raining bullets from above
+            for (let i = 0; i < 5; i++) {
+              enemyBullets.push({
+                x: cx + (Math.random() - 0.5) * 200, y: e.y - 20,
+                vx: (Math.random() - 0.5) * 2, vy: 3 + Math.random() * 2,
+                life: 120, isBomb: true,
+              });
+            }
           }
         } else {
+          playSound('enemy_shoot');
           enemyBullets.push({
             x: e.x + e.w / 2,
             y: e.y + e.h / 2,
@@ -4927,7 +5955,8 @@ function updateEnemiesAndBullets() {
 
 function fireWeapon(p) {
   const w = p.weapon;
-  const sndType = w.name === 'SPREAD' ? 'spread' : (w.name === 'LASER' || w.name === 'HOMING' ? 'laser' : (w.name === 'ROCKET' ? 'explosion' : 'shoot'));
+  const sndMap = { SPREAD: 'spread', LASER: 'laser', HOMING: 'homing', ROCKET: 'rocket', FLAME: 'flame', MACHINE: 'machine', WAVE: 'wave' };
+  const sndType = sndMap[w.name] || 'shoot';
   playSound(sndType);
 
   const startX = p.x + p.w / 2;
@@ -5970,8 +6999,23 @@ function showOverlay(title, subtitle, action) {
         return `<button class="diff-btn${currentDifficulty === k ? ' active' : ''}" data-diff="${k}" onclick="setDifficulty('${k}')">${p.label}</button>`;
       }).join('')}
     </div>
-    <div class="diff-desc" id="diffDescOverlay">${diffSettings.desc}</div>
   `;
+
+  // Extra buttons for gameover/victory
+  let extraBtns = '';
+  if (title === 'GAME OVER' || title === 'VICTORY!') {
+    extraBtns = `
+    <div style="display:flex; gap:8px; margin-top:6px;">
+      <button onclick="showShareModal()" style="padding:5px 12px; font-family:'Press Start 2P',monospace; font-size:7px; background:rgba(0,50,80,0.7); color:#44ddff; border:1px solid #44ddff; border-radius:4px; cursor:pointer;">📤 SHARE SCORE</button>
+      <button onclick="showImportScoreModal()" style="padding:5px 12px; font-family:'Press Start 2P',monospace; font-size:7px; background:rgba(0,50,30,0.7); color:#44ff88; border:1px solid #44ff88; border-radius:4px; cursor:pointer;">📥 IMPORT SCORE</button>
+    </div>`;
+  }
+  // Save/load button (show when returning from playing)
+  let saveLoadBtns = '';
+  if (title !== 'GAME OVER' && title !== 'VICTORY!') {
+    const hasSave = !!localStorage.getItem('contraForce_saveState');
+    saveLoadBtns = hasSave ? `<div style="margin-top:8px;"><button onclick="loadGameState()" style="padding:5px 14px; font-family:'Press Start 2P',monospace; font-size:8px; background:rgba(40,60,10,0.7); color:#aaff44; border:1px solid #aaff44; border-radius:4px; cursor:pointer;">📂 CONTINUE SAVED GAME</button></div>` : '';
+  }
 
   overlay.innerHTML = `
     <h1>${title}</h1>
@@ -5984,6 +7028,8 @@ function showOverlay(title, subtitle, action) {
       <button onclick="toggleAchievementsPanel()" style="padding:6px 14px; font-family:'Press Start 2P',monospace; font-size:8px; background:rgba(60,40,10,0.7); color:#ffaa00; border:1px solid #ffaa00; border-radius:4px; cursor:pointer;">🏆 ACHIEVEMENTS</button>
       <button onclick="toggleLeaderboardPanel()" style="padding:6px 14px; font-family:'Press Start 2P',monospace; font-size:8px; background:rgba(10,40,60,0.7); color:#44ddff; border:1px solid #44ddff; border-radius:4px; cursor:pointer;">📊 LEADERBOARD</button>
     </div>
+    ${extraBtns}
+    ${saveLoadBtns}
     <div class="controls-info">${controlsText()}</div>
   `;
   // Re-attach START button event listeners after replacing HTML
@@ -6051,6 +7097,7 @@ function gameLoop() {
   updateShake();
   updateFlash();
   updatePopups();
+  updateMusic();
 
   if (gameState === 'playing') {
     draw();
@@ -6063,6 +7110,7 @@ function gameLoop() {
 // --- START GAME FUNCTION ---
 function startGameSession() {
   if (gameState === 'title' || gameState === 'gameover' || gameState === 'victory') {
+    playSound('menu_select');
     initAudio();
     if (gameState === 'gameover' || gameState === 'victory') {
       score = 0;
@@ -6193,6 +7241,24 @@ function syncAdminPanel() {
     if (valEl) valEl.textContent = parseFloat(el.value).toFixed(el.step >= 1 ? 0 : el.step >= 0.5 ? 1 : 2);
   }
   document.getElementById('s_godMode').checked = godMode;
+
+  // Audio controls sync
+  const musicVolEl = document.getElementById('s_musicVol');
+  if (musicVolEl) { musicVolEl.value = Math.round(musicVolume * 100); const v = document.getElementById('v_musicVol'); if(v) v.textContent = Math.round(musicVolume*100); }
+  const sfxVolEl = document.getElementById('s_sfxVol');
+  if (sfxVolEl) { sfxVolEl.value = Math.round(sfxVolume * 100); const v = document.getElementById('v_sfxVol'); if(v) v.textContent = Math.round(sfxVolume*100); }
+  const musicEnEl = document.getElementById('s_musicEnabled');
+  if (musicEnEl) musicEnEl.checked = musicEnabled;
+  const sfxEnEl = document.getElementById('s_sfxEnabled');
+  if (sfxEnEl) sfxEnEl.checked = sfxEnabled;
+
+  // Touch controls sync
+  const touchOpEl = document.getElementById('s_touchOpacity');
+  if (touchOpEl) { touchOpEl.value = Math.round(touchOpacity * 100); const v = document.getElementById('v_touchOpacity'); if(v) v.textContent = Math.round(touchOpacity*100); }
+  const touchSwEl = document.getElementById('s_touchSwap');
+  if (touchSwEl) touchSwEl.checked = touchSwapped;
+  const touchVibEl = document.getElementById('s_touchVibrate');
+  if (touchVibEl) touchVibEl.checked = touchVibrate;
   document.getElementById('s_showHitboxes').checked = showHitboxes;
   document.getElementById('s_editorMode').checked = editorMode;
   document.getElementById('s_paused').checked = paused;
