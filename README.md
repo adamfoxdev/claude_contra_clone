@@ -6,6 +6,7 @@ A classic side-scrolling shooter game implemented in HTML5 Canvas with full phys
 
 CONTRA FORCE is a faithful HTML5 recreation of the classic arcade action game, featuring:
 - **Pixel-perfect graphics** with retro arcade aesthetics and parallax backgrounds
+- **Animated sprite sheets** — procedurally generated at init, replacing per-frame drawing with drawImage
 - **Physics-based gameplay** with gravity, momentum, and collision detection
 - **2-Player Local Co-op** — fight side-by-side on the same keyboard
 - **Gamepad / controller support** — up to 2 gamepads, standard mapping, vibration feedback
@@ -299,6 +300,12 @@ Export and import custom level designs:
 - Ladder climbing, wall crawling, and grapple traversal
 - Platform pass-through (one-way platforms)
 
+### Rendering
+- **Sprite sheet system**: All entities (players, 8 enemy types, boss, explosions) have procedurally generated sprite sheets created at startup on offscreen canvases
+- **Multi-frame animations**: Player idle (4f), run (4f), jump (2f), shoot (6f), prone (4f), climb (4f), wall climb (4f). Enemies: idle (2f), walk (4f), shoot (2f), death (4f). Boss: idle (3f), attack (3f), damaged (2f), death (4f)
+- **drawImage rendering**: Runtime uses `ctx.drawImage()` from sprite sheets instead of per-frame `fillRect` calls — faster and enables proper animation
+- **Procedural fallback**: Legacy drawing functions preserved; toggle in Admin Panel → Animated Sprites
+
 ### Game Systems
 - **HUD**: Lives, score, weapon, stage/theme, difficulty badge, zoom, grapple cooldown, achievement counter, leaderboard button
 - **Enemy AI**: 8 enemy types with patrol, shooting, jumping, and shield behaviors
@@ -326,6 +333,8 @@ Access with the **`** (backtick) key to open an in-game debug/tuning panel.
 - **Achievements**: Reset achievements, reset leaderboard
 - **Keybinds**: Rebind controls for both players
 - **Online Multiplayer**: Host/join WebRTC co-op, connection status
+- **Gamepad / Controller**: Dead zone, vibration toggle, detection status
+- **Animated Sprites**: Toggle sprite-sheet rendering vs procedural, preview all sheets
 - **Story Mode**: Toggle narrative cutscenes, preview prologue/epilogue
 
 ## Browser Compatibility
@@ -370,7 +379,7 @@ Select **CUSTOM** difficulty, then use the Admin Panel sliders to fine-tune ever
 - [x] ~~Enhanced touch controls~~ — Opacity, swap sides, vibration
 - [x] ~~Gamepad / controller support~~ — Standard mapping, 2-pad co-op, vibration, dead zone config
 - [x] ~~Online multiplayer via WebRTC~~ — P2P co-op with manual SDP signaling
-- [ ] Animated sprite sheets (replace procedural drawing)
+- [x] ~~Animated sprite sheets~~ — Procedurally generated sheets with multi-frame animations for all entities
 - [x] ~~Story mode with cutscenes~~ — Prologue, 10 stage briefings, epilogue with canvas-rendered cutscene engine
 - [ ] Steam / Itch.io packaging (Electron)
 
@@ -382,7 +391,7 @@ This is a fan recreation of the classic CONTRA arcade game. Original game by Kon
 
 **CONTRA FORCE HTML5** — Modern HTML5 Implementation
 - Game engine, physics, AI, and all systems: Custom implementation
-- Retro pixel-art styling: CSS + Canvas procedural rendering
+- Retro pixel-art styling: CSS + Canvas sprite sheet rendering (procedural fallback)
 - Input: Keyboard, mobile touch, gamepad (Gamepad API with standard mapping)
 
 ---
