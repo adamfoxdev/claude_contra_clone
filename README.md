@@ -8,6 +8,7 @@ CONTRA FORCE is a faithful HTML5 recreation of the classic arcade action game, f
 - **Pixel-perfect graphics** with retro arcade aesthetics and parallax backgrounds
 - **Physics-based gameplay** with gravity, momentum, and collision detection
 - **2-Player Local Co-op** — fight side-by-side on the same keyboard
+- **Gamepad / controller support** — up to 2 gamepads, standard mapping, vibration feedback
 - **Procedural chip-tune music** — 5 dynamic tracks (title, action, boss, gameover, victory) with Web Audio synthesis
 - **27 sound effects** — weapon-specific SFX, enemy sounds, jingles, and UI feedback
 - **25 Achievements** with toast notifications, progress tracking, and a dedicated panel
@@ -25,6 +26,7 @@ CONTRA FORCE is a faithful HTML5 recreation of the classic arcade action game, f
 - **Treasure system** — Gold, Gems, Ancient Relics, and Shield pickups
 - **Admin panel** for physics tweaking, gameplay tuning, and debug tools
 - **Enhanced touch controls** with adjustable opacity, swappable sides, and vibration
+- **Story mode with cutscenes** — narrative prologue, per-stage briefings, and epic epilogue
 
 ## How to Play
 
@@ -77,6 +79,23 @@ On-screen buttons in the top-right corner:
 - **🔊** — Toggle sound effects on/off
 
 Volume sliders available in the Admin Panel → Audio section.
+
+### Gamepad / Controller
+
+Connect a standard gamepad (Xbox, PlayStation, etc.) and press any button. Supports up to 2 gamepads for co-op.
+
+| Button | Action |
+|--------|--------|
+| **D-Pad / Left Stick** | Move & Aim |
+| **A (Cross)** | Jump |
+| **B / X (Circle/Square)** | Shoot |
+| **Y (Triangle) / LB / RB** | Grapple Hook |
+| **LT / RT** | Shoot (alt) |
+| **Start** | Start Game / Advance Cutscene |
+
+- **Gamepad 1** → Player 1, **Gamepad 2** → Player 2 (co-op)
+- Dead zone and vibration settings available in the Admin Panel → Gamepad section
+- Rumble feedback on player death
 
 ### Mobile Touch Controls
 
@@ -186,6 +205,41 @@ Share your high scores with friends using encoded score codes:
 - **Import**: Click 📥 IMPORT SCORE — paste a friend's code to add their score to your leaderboard
 - Imported scores are marked with a 📥 flag
 
+## Story Mode & Cutscenes
+
+Contra Force features a full narrative story mode with canvas-rendered cutscenes between stages.
+
+### Enabling Story Mode
+- Toggle **📖 STORY MODE** on the title screen (below the START button)
+- Or toggle in **Admin Panel → Story Mode**
+- Preference is saved to localStorage
+
+### Story Flow
+| Cutscene | When It Plays |
+|----------|---------------|
+| **Prologue** | Before Stage 1 — sets up the alien invasion and introduces Lance & Bill |
+| **Stage 1–10 Briefings** | Before each stage — mission intel, character dialogue |
+| **Epilogue** | After defeating the final boss — escape sequence and victory narrative |
+
+### Cutscene Controls
+| Input | Action |
+|-------|--------|
+| **Click / ENTER / SPACE** | Advance text (first press shows full line, second advances to next) |
+| **ESC** | Skip entire cutscene |
+
+### Characters
+- **📡 COMMAND** — Mission control, provides intel and objectives
+- **🔴 LANCE** — Hot-headed commando, aggressive and fearless
+- **🔵 BILL** — Cool-headed strategist, calm under pressure
+
+Cutscenes feature:
+- Typewriter text effect with word-wrapping
+- Character portraits with colored name labels
+- Atmospheric gradient backgrounds matching each stage theme
+- Animated star field particles
+- Blinking advance indicator
+- Scene counter progress display
+
 ## Online Multiplayer (WebRTC)
 
 Play co-op with a friend online — no server required! Uses peer-to-peer WebRTC connections with manual signaling.
@@ -271,6 +325,8 @@ Access with the **`** (backtick) key to open an in-game debug/tuning panel.
 - **Touch Controls**: Opacity, button size (S/M/L), vibration, swap sides
 - **Achievements**: Reset achievements, reset leaderboard
 - **Keybinds**: Rebind controls for both players
+- **Online Multiplayer**: Host/join WebRTC co-op, connection status
+- **Story Mode**: Toggle narrative cutscenes, preview prologue/epilogue
 
 ## Browser Compatibility
 
@@ -312,10 +368,10 @@ Select **CUSTOM** difficulty, then use the Admin Panel sliders to fine-tune ever
 - [x] ~~Save/load mid-game state~~ — F5/F9 quick save + file export/import
 - [x] ~~Additional stages and boss patterns~~ — 10 stages, 5-phase boss AI
 - [x] ~~Enhanced touch controls~~ — Opacity, swap sides, vibration
-- [ ] Gamepad / controller support
+- [x] ~~Gamepad / controller support~~ — Standard mapping, 2-pad co-op, vibration, dead zone config
 - [x] ~~Online multiplayer via WebRTC~~ — P2P co-op with manual SDP signaling
 - [ ] Animated sprite sheets (replace procedural drawing)
-- [ ] Story mode with cutscenes
+- [x] ~~Story mode with cutscenes~~ — Prologue, 10 stage briefings, epilogue with canvas-rendered cutscene engine
 - [ ] Steam / Itch.io packaging (Electron)
 
 ## License
@@ -327,7 +383,7 @@ This is a fan recreation of the classic CONTRA arcade game. Original game by Kon
 **CONTRA FORCE HTML5** — Modern HTML5 Implementation
 - Game engine, physics, AI, and all systems: Custom implementation
 - Retro pixel-art styling: CSS + Canvas procedural rendering
-- Input: Keyboard, mobile touch, gamepad-ready architecture
+- Input: Keyboard, mobile touch, gamepad (Gamepad API with standard mapping)
 
 ---
 
