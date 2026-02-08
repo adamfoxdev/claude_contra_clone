@@ -28,6 +28,7 @@ CONTRA FORCE is a faithful HTML5 recreation of the classic arcade action game, f
 - **Admin panel** for physics tweaking, gameplay tuning, and debug tools
 - **Enhanced touch controls** with adjustable opacity, swappable sides, and vibration
 - **Story mode with cutscenes** — narrative prologue, per-stage briefings, and epic epilogue
+- **Desktop packaging** — Electron wrapper for Steam, Itch.io, and standalone distribution
 
 ## How to Play
 
@@ -381,7 +382,92 @@ Select **CUSTOM** difficulty, then use the Admin Panel sliders to fine-tune ever
 - [x] ~~Online multiplayer via WebRTC~~ — P2P co-op with manual SDP signaling
 - [x] ~~Animated sprite sheets~~ — Procedurally generated sheets with multi-frame animations for all entities
 - [x] ~~Story mode with cutscenes~~ — Prologue, 10 stage briefings, epilogue with canvas-rendered cutscene engine
-- [ ] Steam / Itch.io packaging (Electron)
+- [x] ~~Steam / Itch.io packaging~~ — Electron wrapper with builder configs for all platforms
+
+## Desktop App (Electron)
+
+The game can be packaged as a standalone desktop application using Electron.
+
+### Prerequisites
+
+```bash
+npm install
+```
+
+### Run Locally
+
+```bash
+npm start          # production mode
+npm run dev        # dev mode (with DevTools)
+```
+
+### Build Distributables
+
+| Command | Output | Platform |
+|---------|--------|----------|
+| `npm run build:win` | NSIS installer + ZIP | Windows x64 |
+| `npm run build:mac` | DMG | macOS x64/arm64 |
+| `npm run build:linux` | AppImage + ZIP | Linux x64 |
+| `npm run build:all` | All of the above | Cross-platform |
+| `npm run build:steam` | Unpacked directory for SteamPipe | Windows (Steam) |
+| `npm run build:itch` | ZIP archives for butler upload | All platforms (Itch.io) |
+
+Built artifacts appear in `dist/`.
+
+### Steam Distribution
+
+1. Build: `npm run build:steam`
+2. Output: `dist/steam/win-unpacked/`
+3. Create `steam_appid.txt` with your App ID in the output directory
+4. Upload via SteamPipe (`steamcmd`)
+5. Optional: Install `steamworks.js` for Steam achievements integration
+
+### Itch.io Distribution
+
+1. Build: `npm run build:itch`
+2. Install [butler](https://itch.io/docs/butler/): `butler login`
+3. Push builds:
+   ```bash
+   butler push dist/itch/ContraForce-win.zip    your-username/contra-force:win
+   butler push dist/itch/ContraForce-linux.zip   your-username/contra-force:linux
+   butler push dist/itch/ContraForce-mac-*.zip   your-username/contra-force:mac
+   ```
+4. Or upload just the HTML file for web builds:
+   ```bash
+   butler push contra_opus4_6.html your-username/contra-force:html5
+   ```
+
+### Desktop Features
+
+- **F11** — Toggle fullscreen
+- Automatic window sizing to fit display
+- No menu bar in production mode
+- Secure `contextIsolation` + `sandbox` enabled
+- Optional Steamworks.js integration for Steam overlay and achievements
+
+### Project Structure
+
+```
+contra_opus4_6.html          ← The complete game (runs standalone in browser)
+package.json                 ← Electron + electron-builder configuration
+electron/
+  main.js                    ← Electron main process
+  preload.js                 ← Secure bridge between renderer and main
+  generate-icons.js          ← Placeholder icon generator (needs `canvas` npm)
+  icons/                     ← App icons (PNG, ICO, ICNS)
+electron-builder-steam.yml   ← Steam-specific build config
+electron-builder-itch.yml    ← Itch.io-specific build config
+```
+
+### Icons
+
+Replace the placeholder icons in `electron/icons/` with your final artwork:
+- `icon.png` (256×256+) — used as source for all platforms
+- `icon.ico` — Windows
+- `icon.icns` — macOS
+- `16x16.png` through `512x512.png` — Linux
+
+Or use: `npx electron-icon-builder --input=electron/icons/icon.png --output=electron/icons`
 
 ## License
 
@@ -393,6 +479,7 @@ This is a fan recreation of the classic CONTRA arcade game. Original game by Kon
 - Game engine, physics, AI, and all systems: Custom implementation
 - Retro pixel-art styling: CSS + Canvas sprite sheet rendering (procedural fallback)
 - Input: Keyboard, mobile touch, gamepad (Gamepad API with standard mapping)
+- Desktop packaging: Electron + electron-builder (Windows, macOS, Linux)
 
 ---
 
