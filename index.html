@@ -954,6 +954,17 @@
     animation: csBlink 2s infinite;
   }
   @keyframes csBlink { 0%,100%{opacity:0.4} 50%{opacity:0.15} }
+
+  /* --- GAMEPAD INDICATOR --- */
+  .gp-hud {
+    position: absolute; top: 4px; right: 8px;
+    font-family: 'Press Start 2P', monospace; font-size: 6px;
+    color: #888; z-index: 15; pointer-events: none;
+  }
+  .gp-hud-icon { margin-right: 4px; }
+  .gp-hud-connected { color: #44ff88; }
+  .gp-hud-p1 { color: #ff6666; }
+  .gp-hud-p2 { color: #6688ff; }
 </style>
 </head>
 <body>
@@ -1277,6 +1288,17 @@
     </div>
   </div>
 
+  <!-- GAMEPAD / CONTROLLER -->
+  <div class="admin-section collapsed">
+    <div class="admin-section-title" onclick="this.parentElement.classList.toggle('collapsed')">Gamepad / Controller</div>
+    <div class="admin-section-body">
+      <div id="gpAdminStatus" style="font-size:9px;color:#888;margin-bottom:6px;">No gamepads detected</div>
+      <div class="admin-row"><label>Dead Zone</label><input type="range" min="5" max="50" step="5" id="s_gpDeadzone" value="20" oninput="gpDeadzone=this.value/100;document.getElementById('v_gpDeadzone').textContent=this.value+'%'"><span class="val" id="v_gpDeadzone">20%</span></div>
+      <div class="admin-row"><label>Vibration</label><input type="checkbox" id="s_gpVibration" checked onchange="gpVibration=this.checked"></div>
+      <div class="admin-grid-info" style="margin-top:4px">Connect a gamepad and press any button. Pad 1 = Player 1, Pad 2 = Player 2 (co-op). Standard mapping: D-pad/Stick=Move, A=Jump, X/B=Shoot, Y/RB=Grapple, Start=Start Game.</div>
+    </div>
+  </div>
+
   <!-- STORY MODE -->
   <div class="admin-section collapsed">
     <div class="admin-section-title" onclick="this.parentElement.classList.toggle('collapsed')">Story Mode</div>
@@ -1297,6 +1319,9 @@
 
 <!-- MULTIPLAYER HUD BADGE -->
 <div id="mpHud" class="mp-hud" style="display:none;"></div>
+
+<!-- GAMEPAD HUD -->
+<div id="gpHud" class="gp-hud" style="display:none;"></div>
 
 <!-- MULTIPLAYER MODAL (injected dynamically) -->
 <div id="mpModalContainer"></div>
@@ -2286,24 +2311,151 @@ window.addEventListener('keyup', e => {
   if (gameState === 'playing') e.preventDefault();
 });
 
-function isLeft()  { return keybinds.left.some(k => keys[k]); }
-function isRight() { return keybinds.right.some(k => keys[k]); }
-function isUp()    { return keybinds.up.some(k => keys[k]); }
-function isDown()  { return keybinds.down.some(k => keys[k]); }
-function isJump()  { return keybinds.jump.some(k => keys[k]) || isUp(); }
-function isJumpKey() { return keybinds.jump.some(k => keys[k]); } // jump key only, not Up
-function isShoot() { return keybinds.shoot.some(k => keys[k]); }
-function isGrapple() { return keybinds.grapple.some(k => keys[k]); }
+// ============================================================
+//  GAMEPAD / CONTROLLER SUPPORT
+// ============================================================
+// Uses the Gamepad API with per-frame polling.
+// Gamepad 0 → Player 1, Gamepad 1 → Player 2.
+// Standard mapping (Xbox-style):
+//   D-pad / Left stick → Move & Aim
+//   A (btn 0) → Jump          B (btn 1) → Shoot
+//   X (btn 2) → Shoot          Y (btn 3) → Grapple
+//   LB (btn 4) → Grapple       RB (btn 5) → Grapple
+//   Start (btn 9) → Start Game / Advance cutscene
+//   LT (btn 6) → Shoot         RT (btn 7) → Shoot
 
-// Player 2 input functions (co-op)
-function isLeft2()    { return keybinds2.left.some(k => keys[k]); }
-function isRight2()   { return keybinds2.right.some(k => keys[k]); }
-function isUp2()      { return keybinds2.up.some(k => keys[k]); }
-function isDown2()    { return keybinds2.down.some(k => keys[k]); }
-function isJump2()    { return keybinds2.jump.some(k => keys[k]) || isUp2(); }
-function isJumpKey2() { return keybinds2.jump.some(k => keys[k]); } // jump key only, not Up
-function isShoot2()   { return keybinds2.shoot.some(k => keys[k]); }
-function isGrapple2() { return keybinds2.grapple.some(k => keys[k]); }
+let gpDeadzone = 0.20;
+let gpVibration = true;
+const gpState = [null, null]; // cached state per gamepad index
+const gpPrev = [{}, {}];       // previous button states for edge detection
+
+// Standard button indices
+const GP_A = 0, GP_B = 1, GP_X = 2, GP_Y = 3;
+const GP_LB = 4, GP_RB = 5, GP_LT = 6, GP_RT = 7;
+const GP_SELECT = 8, GP_START = 9;
+const GP_L3 = 10, GP_R3 = 11;
+const GP_DPAD_UP = 12, GP_DPAD_DOWN = 13, GP_DPAD_LEFT = 14, GP_DPAD_RIGHT = 15;
+
+function pollGamepads() {
+  const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+  for (let i = 0; i < 2; i++) {
+    const gp = gamepads[i];
+    if (gp && gp.connected) {
+      // Cache previous button states
+      if (gpState[i]) {
+        for (let b = 0; b < gpState[i].buttons.length; b++) {
+          gpPrev[i][b] = gpState[i].buttons[b].pressed;
+        }
+      }
+      gpState[i] = gp;
+    } else {
+      gpState[i] = null;
+    }
+  }
+}
+
+// Check if a button was JUST pressed this frame (edge detection for Start, etc.)
+function gpJustPressed(padIdx, btnIdx) {
+  const gp = gpState[padIdx];
+  if (!gp || !gp.buttons[btnIdx]) return false;
+  return gp.buttons[btnIdx].pressed && !gpPrev[padIdx][btnIdx];
+}
+
+function gpBtn(padIdx, btnIdx) {
+  const gp = gpState[padIdx];
+  if (!gp || !gp.buttons[btnIdx]) return false;
+  return gp.buttons[btnIdx].pressed;
+}
+
+function gpAxis(padIdx, axisIdx) {
+  const gp = gpState[padIdx];
+  if (!gp || gp.axes[axisIdx] === undefined) return 0;
+  const v = gp.axes[axisIdx];
+  return Math.abs(v) < gpDeadzone ? 0 : v;
+}
+
+// Gamepad vibration (rumble)
+function gpRumble(padIdx, duration, weakMag, strongMag) {
+  if (!gpVibration) return;
+  const gp = gpState[padIdx];
+  if (!gp) return;
+  const va = gp.vibrationActuator;
+  if (va && va.playEffect) {
+    va.playEffect('dual-rumble', {
+      duration: duration || 100,
+      weakMagnitude: weakMag || 0.3,
+      strongMagnitude: strongMag || 0.5,
+    }).catch(() => {});
+  }
+}
+
+// Helper: gamepad input for a specific pad index
+function gpLeft(i)    { return gpBtn(i, GP_DPAD_LEFT)  || gpAxis(i, 0) < -0.5; }
+function gpRight(i)   { return gpBtn(i, GP_DPAD_RIGHT) || gpAxis(i, 0) > 0.5; }
+function gpUp(i)      { return gpBtn(i, GP_DPAD_UP)    || gpAxis(i, 1) < -0.5; }
+function gpDown(i)    { return gpBtn(i, GP_DPAD_DOWN)  || gpAxis(i, 1) > 0.5; }
+function gpJump(i)    { return gpBtn(i, GP_A); }
+function gpShoot(i)   { return gpBtn(i, GP_B) || gpBtn(i, GP_X) || gpBtn(i, GP_LT) || gpBtn(i, GP_RT); }
+function gpGrapple(i) { return gpBtn(i, GP_Y) || gpBtn(i, GP_LB) || gpBtn(i, GP_RB); }
+function gpStart(i)   { return gpJustPressed(i, GP_START); }
+
+// Gamepad HUD update
+function updateGpHud() {
+  const el = document.getElementById('gpHud');
+  if (!el) return;
+  const gp0 = gpState[0], gp1 = gpState[1];
+  if (!gp0 && !gp1) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  let html = '<span class="gp-hud-icon">🎮</span>';
+  if (gp0) html += '<span class="gp-hud-p1">P1</span> ';
+  if (gp1) html += '<span class="gp-hud-p2">P2</span>';
+  el.innerHTML = html;
+}
+
+// Admin panel gamepad status update
+function updateGpAdminStatus() {
+  const el = document.getElementById('gpAdminStatus');
+  if (!el) return;
+  const gp0 = gpState[0], gp1 = gpState[1];
+  if (!gp0 && !gp1) { el.textContent = 'No gamepads detected'; el.style.color = '#888'; return; }
+  let parts = [];
+  if (gp0) parts.push('P1: ' + (gp0.id.length > 40 ? gp0.id.substring(0, 40) + '…' : gp0.id));
+  if (gp1) parts.push('P2: ' + (gp1.id.length > 40 ? gp1.id.substring(0, 40) + '…' : gp1.id));
+  el.innerHTML = parts.join('<br>');
+  el.style.color = '#44ff88';
+}
+
+// Gamepad connection events
+window.addEventListener('gamepadconnected', e => {
+  updateGpHud();
+  updateGpAdminStatus();
+});
+window.addEventListener('gamepaddisconnected', e => {
+  const idx = e.gamepad.index;
+  if (idx < 2) gpState[idx] = null;
+  updateGpHud();
+  updateGpAdminStatus();
+});
+
+// --- Player 1 input (keyboard + touch + gamepad 0) ---
+function isLeft()  { return keybinds.left.some(k => keys[k]) || gpLeft(0); }
+function isRight() { return keybinds.right.some(k => keys[k]) || gpRight(0); }
+function isUp()    { return keybinds.up.some(k => keys[k]) || gpUp(0); }
+function isDown()  { return keybinds.down.some(k => keys[k]) || gpDown(0); }
+function isJump()  { return keybinds.jump.some(k => keys[k]) || isUp() || gpJump(0); }
+function isJumpKey() { return keybinds.jump.some(k => keys[k]) || gpJump(0); }
+function isShoot() { return keybinds.shoot.some(k => keys[k]) || gpShoot(0); }
+function isGrapple() { return keybinds.grapple.some(k => keys[k]) || gpGrapple(0); }
+
+// --- Player 2 input (keyboard + gamepad 1) ---
+function isLeft2()    { return keybinds2.left.some(k => keys[k]) || gpLeft(1); }
+function isRight2()   { return keybinds2.right.some(k => keys[k]) || gpRight(1); }
+function isUp2()      { return keybinds2.up.some(k => keys[k]) || gpUp(1); }
+function isDown2()    { return keybinds2.down.some(k => keys[k]) || gpDown(1); }
+function isJump2()    { return keybinds2.jump.some(k => keys[k]) || isUp2() || gpJump(1); }
+function isJumpKey2() { return keybinds2.jump.some(k => keys[k]) || gpJump(1); }
+function isShoot2()   { return keybinds2.shoot.some(k => keys[k]) || gpShoot(1); }
+function isGrapple2() { return keybinds2.grapple.some(k => keys[k]) || gpGrapple(1); }
 
 // Rebinding state
 let rebindingAction = null;  // e.g. 'left'
@@ -6489,6 +6641,9 @@ function killPlayer(target) {
   p.digging = false;
   p.digTimer = 0;
   playSound('die');
+  // Gamepad vibration on death
+  if (p === player) gpRumble(0, 300, 0.8, 1.0);
+  else if (p === player2) gpRumble(1, 300, 0.8, 1.0);
   const cx = p.x + p.w / 2;
   const cy = p.y + p.h / 2;
   triggerShake(12, 20);
@@ -7427,13 +7582,17 @@ function draw() {
 // --- OVERLAY ---
 function controlsText() {
   const kb = (action) => keybinds[action].map(k => keyName(k)).join(' / ');
-  return `${kb('left')} ${kb('right')} — MOVE   ${kb('up')} ${kb('down')} — AIM<br>` +
+  let txt = `${kb('left')} ${kb('right')} — MOVE   ${kb('up')} ${kb('down')} — AIM<br>` +
          `${kb('shoot')} — SHOOT   ${kb('grapple')} — GRAPPLE HOOK<br>` +
          `${kb('jump')} / ${kb('up')} — JUMP (also releases grapple)<br>` +
          `HOLD DIRECTION INTO WALL — DIG   DOWN — PRONE/DIG DOWN<br>` +
          `GRAPPLE: HANG → ←→ SWING → JUMP TO LAUNCH<br>` +
          `SCROLL / +− — ZOOM (0 RESET)<br>` +
          `\` (BACKTICK) — ADMIN PANEL`;
+  if (gpState[0] || gpState[1]) {
+    txt += `<br><span style="color:#44ff88">🎮 GAMEPAD: D-PAD/STICK=MOVE  A=JUMP  B/X=SHOOT  Y/RB=GRAPPLE  START=START</span>`;
+  }
+  return txt;
 }
 
 // ============================================================
@@ -8064,6 +8223,26 @@ function showOverlay(title, subtitle, action) {
 
 // --- GAME LOOP ---
 function gameLoop() {
+  // Poll gamepads every frame
+  pollGamepads();
+  updateGpHud();
+
+  // Handle gamepad Start button for starting game or advancing cutscene
+  for (let gi = 0; gi < 2; gi++) {
+    if (gpStart(gi)) {
+      if (csActive && typeof csAdvance === 'function') {
+        csAdvance();
+      } else if (gameState === 'title' || gameState === 'gameover' || gameState === 'victory') {
+        const sb = document.getElementById('startBtn');
+        if (sb) sb.click();
+      }
+    }
+    // Gamepad A button to advance cutscene
+    if (csActive && gpJustPressed(gi, GP_A) && typeof csAdvance === 'function') {
+      csAdvance();
+    }
+  }
+
   // Cutscene active — skip normal game loop, cutscene has its own render loop
   if (csActive) {
     requestAnimationFrame(gameLoop);
