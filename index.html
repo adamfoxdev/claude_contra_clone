@@ -1089,7 +1089,8 @@
     <button id="startBtn">START GAME</button>
     <div style="display:flex; gap:12px; margin-top:8px;">
       <button onclick="toggleAchievementsPanel()" style="padding:6px 14px; font-family:'Press Start 2P',monospace; font-size:8px; background:rgba(60,40,10,0.7); color:#ffaa00; border:1px solid #ffaa00; border-radius:4px; cursor:pointer;">🏆 ACHIEVEMENTS</button>
-      <button onclick="toggleLeaderboardPanel()" style="padding:6px 14px; font-family:'Press Start 2P',monospace; font-size:8px; background:rgba(10,40,60,0.7); color:#44ddff; border:1px solid #44ddff; border-radius:4px; cursor:pointer;">📊 LEADERBOARD</button>
+      <button onclick="toggleLeaderboardPanel()" style="padding:5px 12px; font-family:'Press Start 2P',monospace; font-size:8px; background:rgba(10,40,60,0.7); color:#44ddff; border:1px solid #44ddff; border-radius:4px; cursor:pointer;">📊 LEADERBOARD</button>
+      <button onclick="startTutorial()" id="tutorialBtn" style="padding:6px 14px; font-family:'Press Start 2P',monospace; font-size:8px; background:rgba(10,60,30,0.7); color:#44ff88; border:1px solid #44ff88; border-radius:4px; cursor:pointer;">📖 TUTORIAL</button>
     </div>
     <div style="margin-top:6px; display:flex; align-items:center; gap:8px; justify-content:center;">
       <label style="font-family:'Press Start 2P',monospace; font-size:7px; color:#cc88ff; cursor:pointer; display:flex; align-items:center; gap:6px;">
@@ -1411,6 +1412,20 @@
       <div class="admin-row"><label>Dynamic Lighting</label><input type="checkbox" id="s_lightingEnabled" checked onchange="dynamicLightingEnabled=this.checked"></div>
       <div class="admin-row"><label>Animated Water/Lava</label><input type="checkbox" id="s_animTiles" checked onchange="animatedTilesEnabled=this.checked"></div>
       <div class="admin-grid-info" style="margin-top:4px">CRT shader adds retro scanlines, chromatic aberration and screen curvature. Weather varies per stage theme. Dynamic lighting adds muzzle flash and explosion glow.</div>
+    </div>
+  </div>
+
+  <!-- PARTICLE EDITOR -->
+  <div class="admin-section">
+    <div class="admin-section-title" onclick="this.parentElement.classList.toggle('collapsed')">Particle Editor 💥</div>
+    <div class="admin-body">
+      <div class="admin-grid-info" style="margin-bottom:6px">Tweak explosion, death, glow, ring, and debris particle effects in real time. Click ▶ TEST to preview each effect at the player's position.</div>
+      <div id="particleEditorPresets"></div>
+      <hr style="border-color:#333;margin:8px 0">
+      <div style="display:flex;gap:8px;justify-content:center;">
+        <button class="admin-btn" onclick="particlePresets={explosion:{count:30,speed:6,life:35,color:'#ff4400',size:3,gravity:0.2},death:{count:40,speed:7,life:40,color:'#ff4400',sizeMin:1,sizeMax:3,gravity:0},glow:{count:10,speed:4,life:40,color:'#ff8800',sizeMin:2,sizeMax:4},ring:{count:12,speed:0.15,life:20,color:'#ff6600',size:3},debris:{count:6,speed:5,life:60,color:'#666666',sizeMin:3,sizeMax:5,gravity:0.2}};updateParticleEditorUI();" style="font-size:8px;padding:4px 10px;background:#330000;color:#ff6666;border:1px solid #ff4444;border-radius:4px;cursor:pointer;">🔄 RESET ALL</button>
+        <button class="admin-btn" onclick="for(const n of Object.keys(particlePresets)){particleEditorTestEffect(n);}" style="font-size:8px;padding:4px 10px;background:#002200;color:#66ff66;border:1px solid #44ff44;border-radius:4px;cursor:pointer;">💥 TEST ALL</button>
+      </div>
     </div>
   </div>
 
@@ -2747,6 +2762,8 @@ function saveChallengeProgress() {
 
 // --- MODE GAME OVER HANDLER ---
 function handleModeGameOver() {
+  // Don't trigger game over during demo mode
+  if (gameState === 'demo') { stopDemoMode(); return; }
   playSound('game_over');
   gameState = 'gameover';
 
@@ -4252,6 +4269,812 @@ let waterAnimFrame = 0;
 
 function updateAnimatedTiles() {
   waterAnimFrame++;
+}
+
+// ============================================================
+//  ANIMATED TITLE SCREEN & DEMO MODE
+// ============================================================
+
+let titleAnimFrame = 0;
+let titleStars = [];
+let titleLogoY = 0;
+let titleLogoScale = 1;
+let titleDemoTimer = 0;
+let titleDemoActive = false;
+const TITLE_DEMO_DELAY = 600; // 10 seconds at 60fps before demo starts
+
+// Initialize title screen star field
+function initTitleStars() {
+  titleStars = [];
+  for (let i = 0; i < 120; i++) {
+    titleStars.push({
+      x: Math.random() * GAME_W,
+      y: Math.random() * GAME_H,
+      speed: 0.2 + Math.random() * 1.5,
+      size: 0.5 + Math.random() * 2,
+      brightness: 0.3 + Math.random() * 0.7,
+      layer: Math.floor(Math.random() * 3), // 0=far, 1=mid, 2=near
+    });
+  }
+}
+initTitleStars();
+
+function drawTitleScreen() {
+  titleAnimFrame++;
+
+  // Animated background — gradient shift
+  const hueShift = Math.sin(titleAnimFrame * 0.005) * 10;
+  const grad = ctx.createLinearGradient(0, 0, 0, GAME_H);
+  grad.addColorStop(0, `hsl(${240 + hueShift}, 60%, 5%)`);
+  grad.addColorStop(0.4, `hsl(${260 + hueShift}, 50%, 10%)`);
+  grad.addColorStop(0.7, `hsl(${280 + hueShift}, 40%, 8%)`);
+  grad.addColorStop(1, `hsl(${250 + hueShift}, 60%, 3%)`);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, GAME_W, GAME_H);
+
+  // Parallax star layers
+  for (const star of titleStars) {
+    star.x -= star.speed * (0.3 + star.layer * 0.4);
+    if (star.x < -2) star.x = GAME_W + 2;
+    const twinkle = star.brightness + Math.sin(titleAnimFrame * 0.08 + star.x) * 0.2;
+    ctx.globalAlpha = Math.max(0.1, Math.min(1, twinkle));
+    ctx.fillStyle = star.layer === 2 ? '#aaccff' : (star.layer === 1 ? '#8899cc' : '#556688');
+    ctx.fillRect(star.x, star.y, star.size, star.size);
+  }
+  ctx.globalAlpha = 1;
+
+  // Parallax mountains silhouette
+  for (let layer = 0; layer < 3; layer++) {
+    const layerAlpha = 0.15 + layer * 0.08;
+    const layerColor = `rgba(${20 + layer * 15}, ${10 + layer * 8}, ${40 + layer * 10}, ${layerAlpha})`;
+    ctx.fillStyle = layerColor;
+    ctx.beginPath();
+    ctx.moveTo(0, GAME_H);
+    const scrollOff = titleAnimFrame * (0.2 + layer * 0.3);
+    for (let x = 0; x <= GAME_W; x += 30) {
+      const h = 80 + Math.sin((x + scrollOff) * 0.01 + layer) * 50 + Math.sin((x + scrollOff) * 0.025) * 25;
+      ctx.lineTo(x, GAME_H - 60 - h + layer * 35);
+    }
+    ctx.lineTo(GAME_W, GAME_H);
+    ctx.fill();
+  }
+
+  // Ground strip
+  ctx.fillStyle = '#1a1a0a';
+  ctx.fillRect(0, GAME_H - 40, GAME_W, 40);
+  ctx.fillStyle = '#2a2a1a';
+  ctx.fillRect(0, GAME_H - 40, GAME_W, 3);
+
+  // Animated logo — floating with glow
+  titleLogoY = GAME_H * 0.22 + Math.sin(titleAnimFrame * 0.03) * 8;
+  titleLogoScale = 1 + Math.sin(titleAnimFrame * 0.02) * 0.03;
+
+  ctx.save();
+  ctx.translate(GAME_W / 2, titleLogoY);
+  ctx.scale(titleLogoScale, titleLogoScale);
+
+  // Logo glow
+  ctx.shadowColor = '#ff4444';
+  ctx.shadowBlur = 20 + Math.sin(titleAnimFrame * 0.05) * 10;
+  ctx.font = '32px "Press Start 2P"';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#ff4444';
+  ctx.fillText('CONTRA', 0, 0);
+  ctx.shadowColor = '#ff8800';
+  ctx.shadowBlur = 15 + Math.sin(titleAnimFrame * 0.04) * 8;
+  ctx.font = '24px "Press Start 2P"';
+  ctx.fillStyle = '#ffcc00';
+  ctx.fillText('FORCE', 0, 36);
+  ctx.shadowBlur = 0;
+
+  // Subtitle
+  ctx.font = '7px "Press Start 2P"';
+  ctx.fillStyle = '#888';
+  ctx.globalAlpha = 0.5 + Math.sin(titleAnimFrame * 0.04) * 0.3;
+  ctx.fillText('A CLASSIC SIDE-SCROLLING SHOOTER', 0, 58);
+  ctx.globalAlpha = 1;
+  ctx.restore();
+
+  // Animated soldier silhouettes at bottom
+  const soldierX1 = (titleAnimFrame * 1.5) % (GAME_W + 60) - 30;
+  const soldierX2 = GAME_W - ((titleAnimFrame * 1.2 + 200) % (GAME_W + 60)) + 30;
+  drawTitleSoldier(soldierX1, GAME_H - 42, 1);
+  drawTitleSoldier(soldierX2, GAME_H - 42, -1);
+
+  // Demo mode notification
+  if (!titleDemoActive) {
+    titleDemoTimer++;
+    if (titleDemoTimer > TITLE_DEMO_DELAY) {
+      startDemoMode();
+    }
+  }
+
+  // "DEMO" indicator when demo is playing
+  if (titleDemoActive) {
+    ctx.font = '8px "Press Start 2P"';
+    ctx.fillStyle = '#ff8844';
+    ctx.textAlign = 'center';
+    ctx.globalAlpha = 0.5 + Math.sin(titleAnimFrame * 0.08) * 0.3;
+    ctx.fillText('— DEMO —', GAME_W / 2, GAME_H - 8);
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'left';
+  }
+}
+
+function drawTitleSoldier(x, y, facing) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(facing, 1);
+  // Simple soldier silhouette
+  ctx.fillStyle = '#445566';
+  ctx.globalAlpha = 0.5;
+  // Body
+  ctx.fillRect(-5, -22, 10, 14);
+  // Head
+  ctx.fillRect(-4, -28, 8, 6);
+  // Legs (animated)
+  const legPhase = Math.sin(titleAnimFrame * 0.15 + x * 0.1);
+  ctx.fillRect(-5, -8, 4, 8 + legPhase * 2);
+  ctx.fillRect(1, -8, 4, 8 - legPhase * 2);
+  // Gun
+  ctx.fillRect(5, -20, 12, 3);
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+function drawDemoOverlay() {
+  // Floating logo overlay on top of the demo gameplay
+  titleAnimFrame++;
+  const logoY = 60 + Math.sin(titleAnimFrame * 0.03) * 5;
+
+  ctx.save();
+  ctx.textAlign = 'center';
+
+  // Logo with glow
+  ctx.shadowColor = '#ff4444';
+  ctx.shadowBlur = 15 + Math.sin(titleAnimFrame * 0.05) * 8;
+  ctx.font = '24px "Press Start 2P"';
+  ctx.fillStyle = '#ff4444';
+  ctx.fillText('CONTRA', GAME_W / 2, logoY);
+  ctx.shadowColor = '#ff8800';
+  ctx.shadowBlur = 10;
+  ctx.font = '18px "Press Start 2P"';
+  ctx.fillStyle = '#ffcc00';
+  ctx.fillText('FORCE', GAME_W / 2, logoY + 28);
+  ctx.shadowBlur = 0;
+
+  // Demo indicator
+  ctx.font = '8px "Press Start 2P"';
+  ctx.fillStyle = '#ff8844';
+  ctx.globalAlpha = 0.5 + Math.sin(titleAnimFrame * 0.08) * 0.3;
+  ctx.fillText('— DEMO — PRESS ANY KEY TO START —', GAME_W / 2, GAME_H - 20);
+  ctx.globalAlpha = 1;
+
+  ctx.textAlign = 'left';
+  ctx.restore();
+}
+
+// Demo mode: auto-play AI
+let demoAI = { moveDir: 1, jumpTimer: 0, shootTimer: 0, aimTimer: 0 };
+
+function startDemoMode() {
+  if (gameState !== 'title') return;
+  titleDemoActive = true;
+  overlay.classList.add('hidden');
+  hud.classList.add('hidden');
+  // Temporarily start a game session for demo
+  gameMode = 'campaign';
+  stage = Math.ceil(Math.random() * 3); // Random early stage
+  applyDifficulty();
+  resetRunStats();
+  initGame();
+  gameState = 'demo';
+  if (player) player.lives = 99;
+  demoAI = { moveDir: 1, jumpTimer: 0, shootTimer: 0, aimTimer: 0 };
+}
+
+function stopDemoMode() {
+  titleDemoActive = false;
+  titleDemoTimer = 0;
+  gameState = 'title';
+  demoAI = { moveDir: 1, jumpTimer: 0, shootTimer: 0, aimTimer: 0 };
+  overlay.classList.remove('hidden');
+  hud.classList.add('hidden');
+}
+
+function updateDemoAI() {
+  if (gameState !== 'demo' || !player) return;
+  const p = player;
+
+  // Simple AI: run right, shoot occasionally, jump over gaps/enemies
+  demoAI.jumpTimer--;
+  demoAI.shootTimer--;
+  demoAI.aimTimer--;
+
+  // Move right, occasionally reverse at walls
+  p.vx = demoAI.moveDir * playerSpeed * 0.8;
+  p.facing = demoAI.moveDir;
+  p.aimX = demoAI.moveDir;
+  p.aimY = 0;
+
+  // Edge detection / wall bump — reverse occasionally
+  const frontCol = Math.floor((p.x + (demoAI.moveDir > 0 ? p.w + 4 : -4)) / TILE);
+  const footRow = Math.floor((p.y + p.h - 2) / TILE);
+  if (frontCol >= 0 && frontCol < level.cols && footRow >= 0 && footRow < level.rows) {
+    if (level.map[footRow][frontCol] === 1) {
+      // Wall ahead — jump or reverse
+      if (demoAI.jumpTimer <= 0 && p.onGround) {
+        p.vy = jumpForce;
+        p.onGround = false;
+        demoAI.jumpTimer = 30;
+      }
+    }
+    // Gap detection
+    const belowFront = footRow + 1 < level.rows ? level.map[footRow + 1][frontCol] : 0;
+    if (!belowFront && p.onGround && demoAI.jumpTimer <= 0) {
+      p.vy = jumpForce;
+      p.onGround = false;
+      demoAI.jumpTimer = 20;
+    }
+  }
+
+  // Reverse at level edges
+  if (p.x < 30) demoAI.moveDir = 1;
+  if (p.x > (level.cols - 3) * TILE) demoAI.moveDir = -1;
+
+  // Random direction changes
+  if (Math.random() < 0.005) demoAI.moveDir *= -1;
+
+  // Shoot at nearby enemies
+  if (demoAI.shootTimer <= 0) {
+    for (const e of enemies) {
+      if (!e.active) continue;
+      const dx = e.x - p.x;
+      const dy = e.y - p.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 300) {
+        // Aim toward enemy
+        p.aimX = dx > 0 ? 1 : -1;
+        p.aimY = Math.abs(dy) > 40 ? (dy > 0 ? 1 : -1) : 0;
+        p.facing = p.aimX;
+        fireWeapon(p);
+        demoAI.shootTimer = p.weapon.fireRate + Math.floor(Math.random() * 10);
+        break;
+      }
+    }
+    if (demoAI.shootTimer <= 0) {
+      // Shoot forward periodically
+      if (Math.random() < 0.03) {
+        fireWeapon(p);
+        demoAI.shootTimer = 15;
+      }
+    }
+  }
+
+  // Jump occasionally
+  if (p.onGround && Math.random() < 0.01 && demoAI.jumpTimer <= 0) {
+    p.vy = jumpForce;
+    p.onGround = false;
+    demoAI.jumpTimer = 40;
+  }
+
+  // Respawn if dead
+  if (p.dead && p.lives > 0 && p.respawnTimer <= 0) {
+    p.dead = false;
+    p.invincible = 120;
+    p.x = 60;
+    p.y = 100;
+  }
+  // End demo if out of lives
+  if (p.dead && p.lives <= 0) {
+    stopDemoMode();
+  }
+}
+
+// ============================================================
+//  CREDITS ROLL
+// ============================================================
+
+let creditsActive = false;
+let creditsScrollY = 0;
+let creditsSpeed = 0.8;
+let creditsCallback = null;
+const CREDITS_DATA = [
+  { type: 'title', text: 'CONTRA FORCE' },
+  { type: 'subtitle', text: 'HTML5 EDITION' },
+  { type: 'gap', height: 40 },
+  { type: 'heading', text: '— GAME DESIGN —' },
+  { type: 'name', text: 'Custom Implementation' },
+  { type: 'gap', height: 30 },
+  { type: 'heading', text: '— PROGRAMMING —' },
+  { type: 'name', text: 'Game Engine & Physics' },
+  { type: 'name', text: 'Enemy AI & Boss Patterns' },
+  { type: 'name', text: 'Procedural Level Generation' },
+  { type: 'name', text: 'Particle & Effects Systems' },
+  { type: 'name', text: 'Multiplayer & Networking' },
+  { type: 'gap', height: 30 },
+  { type: 'heading', text: '— AUDIO —' },
+  { type: 'name', text: 'Procedural Chip-Tune Synthesis' },
+  { type: 'name', text: '5 Dynamic Music Tracks' },
+  { type: 'name', text: '27 Sound Effects' },
+  { type: 'gap', height: 30 },
+  { type: 'heading', text: '— ART & RENDERING —' },
+  { type: 'name', text: 'Sprite Sheet Generation' },
+  { type: 'name', text: 'Parallax Backgrounds' },
+  { type: 'name', text: 'CRT & Weather Effects' },
+  { type: 'name', text: 'Dynamic Lighting' },
+  { type: 'gap', height: 30 },
+  { type: 'heading', text: '— GAME FEATURES —' },
+  { type: 'name', text: '10 Unique Stages' },
+  { type: 'name', text: '8 Enemy Types + Bosses' },
+  { type: 'name', text: '11 Weapons' },
+  { type: 'name', text: '6 Playable Characters' },
+  { type: 'name', text: '25 Achievements' },
+  { type: 'name', text: '5 Game Modes' },
+  { type: 'name', text: 'Story Mode & Cutscenes' },
+  { type: 'name', text: 'Online Co-op Multiplayer' },
+  { type: 'gap', height: 30 },
+  { type: 'heading', text: '— SPECIAL THANKS —' },
+  { type: 'name', text: 'Konami — Original CONTRA' },
+  { type: 'name', text: 'The Retro Gaming Community' },
+  { type: 'gap', height: 50 },
+  { type: 'heading', text: '— YOUR STATS —' },
+  { type: 'stat', key: 'kills' },
+  { type: 'stat', key: 'combo' },
+  { type: 'stat', key: 'time' },
+  { type: 'stat', key: 'stages' },
+  { type: 'stat', key: 'deaths' },
+  { type: 'gap', height: 50 },
+  { type: 'title', text: 'THANK YOU' },
+  { type: 'subtitle', text: 'FOR PLAYING' },
+  { type: 'gap', height: 30 },
+  { type: 'ending', text: '🎮' },
+  { type: 'gap', height: GAME_H },
+];
+
+function startCredits(callback) {
+  creditsActive = true;
+  creditsScrollY = GAME_H;
+  creditsCallback = callback || null;
+}
+
+function updateCredits() {
+  if (!creditsActive) return;
+  creditsScrollY -= creditsSpeed;
+
+  // Calculate total credits height
+  let totalH = 0;
+  for (const line of CREDITS_DATA) {
+    if (line.type === 'gap') totalH += line.height;
+    else if (line.type === 'title') totalH += 50;
+    else if (line.type === 'subtitle') totalH += 30;
+    else if (line.type === 'heading') totalH += 35;
+    else if (line.type === 'ending') totalH += 40;
+    else totalH += 20;
+  }
+
+  // Credits finished scrolling
+  if (creditsScrollY < -totalH) {
+    creditsActive = false;
+    if (creditsCallback) {
+      creditsCallback();
+      creditsCallback = null;
+    }
+  }
+}
+
+function drawCredits() {
+  if (!creditsActive) return;
+
+  // Background — dark with slow-moving stars
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, GAME_W, GAME_H);
+
+  for (const star of titleStars) {
+    star.y -= 0.3;
+    if (star.y < -2) star.y = GAME_H + 2;
+    ctx.globalAlpha = star.brightness * 0.5;
+    ctx.fillStyle = '#8899bb';
+    ctx.fillRect(star.x, star.y, star.size * 0.7, star.size * 0.7);
+  }
+  ctx.globalAlpha = 1;
+
+  // Render credits text
+  ctx.textAlign = 'center';
+  let y = creditsScrollY;
+
+  for (const line of CREDITS_DATA) {
+    // Skip off-screen lines (optimization)
+    const lineH = line.type === 'gap' ? line.height : (line.type === 'title' ? 50 : (line.type === 'subtitle' ? 30 : (line.type === 'heading' ? 35 : (line.type === 'ending' ? 40 : 20))));
+    if (y + lineH < -20) { y += lineH; continue; }
+    if (y > GAME_H + 20) { y += lineH; continue; }
+
+    switch (line.type) {
+      case 'title':
+        ctx.font = '24px "Press Start 2P"';
+        ctx.fillStyle = '#ff4444';
+        ctx.shadowColor = '#ff0000';
+        ctx.shadowBlur = 15;
+        ctx.fillText(line.text, GAME_W / 2, y);
+        ctx.shadowBlur = 0;
+        y += 50;
+        break;
+      case 'subtitle':
+        ctx.font = '12px "Press Start 2P"';
+        ctx.fillStyle = '#ffcc00';
+        ctx.fillText(line.text, GAME_W / 2, y);
+        y += 30;
+        break;
+      case 'heading':
+        ctx.font = '10px "Press Start 2P"';
+        ctx.fillStyle = '#44aaff';
+        ctx.fillText(line.text, GAME_W / 2, y);
+        y += 35;
+        break;
+      case 'name':
+        ctx.font = '8px "Press Start 2P"';
+        ctx.fillStyle = '#cccccc';
+        ctx.fillText(line.text, GAME_W / 2, y);
+        y += 20;
+        break;
+      case 'stat': {
+        ctx.font = '8px "Press Start 2P"';
+        ctx.fillStyle = '#ffaa44';
+        let text = '';
+        if (line.key === 'kills') text = `💀 KILLS: ${runStats.kills}`;
+        else if (line.key === 'combo') text = `🔥 MAX COMBO: ${runStats.maxCombo}x`;
+        else if (line.key === 'time') {
+          const dur = (Date.now() - runStats.startTime) / 1000;
+          text = `⏱️ TIME: ${Math.floor(dur / 60)}:${String(Math.floor(dur % 60)).padStart(2, '0')}`;
+        }
+        else if (line.key === 'stages') text = `🏁 STAGES: ${runStats.stagesCleared}`;
+        else if (line.key === 'deaths') text = `☠️ DEATHS: ${runStats.deaths}`;
+        ctx.fillText(text, GAME_W / 2, y);
+        y += 20;
+        break;
+      }
+      case 'ending':
+        ctx.font = '32px "Press Start 2P"';
+        ctx.fillText(line.text, GAME_W / 2, y);
+        y += 40;
+        break;
+      case 'gap':
+        y += line.height;
+        break;
+    }
+  }
+  ctx.textAlign = 'left';
+
+  // Skip prompt
+  ctx.font = '6px "Press Start 2P"';
+  ctx.fillStyle = '#666';
+  ctx.textAlign = 'center';
+  ctx.globalAlpha = 0.5 + Math.sin(Date.now() * 0.005) * 0.3;
+  ctx.fillText('PRESS ENTER OR ESC TO SKIP', GAME_W / 2, GAME_H - 10);
+  ctx.globalAlpha = 1;
+  ctx.textAlign = 'left';
+}
+
+// ============================================================
+//  TUTORIAL STAGE (STAGE 0)
+// ============================================================
+
+let tutorialActive = false;
+let tutorialStep = 0;
+let tutorialTimer = 0;
+let tutorialComplete = false;
+try { tutorialComplete = localStorage.getItem('contraForce_tutorialDone') === '1'; } catch(e) {}
+
+const TUTORIAL_STEPS = [
+  { msg: 'WELCOME, SOLDIER! USE ← → OR A/D TO MOVE', check: 'move', hint: 'MOVE LEFT AND RIGHT' },
+  { msg: 'PRESS X OR UP TO JUMP', check: 'jump', hint: 'JUMP OVER THE GAP' },
+  { msg: 'PRESS SPACE OR Z TO SHOOT!', check: 'shoot', hint: 'DESTROY THE TARGETS' },
+  { msg: 'HOLD UP/DOWN TO AIM IN 8 DIRECTIONS', check: 'aim', hint: 'AIM UP AND SHOOT' },
+  { msg: 'CLIMB LADDERS WITH UP/DOWN', check: 'climb', hint: 'CLIMB THE LADDER' },
+  { msg: 'PRESS C TO FIRE THE GRAPPLE HOOK', check: 'grapple', hint: 'GRAPPLE TO THE PLATFORM' },
+  { msg: 'COLLECT WEAPON POWER-UPS!', check: 'weapon', hint: 'GRAB THE FLOATING ITEM' },
+  { msg: 'YOU\'RE READY! DESTROY THE BOSS!', check: 'boss', hint: 'DEFEAT THE BOSS TO FINISH' },
+];
+
+let tutorialChecks = {
+  moved: 0,        // frames of movement
+  jumped: false,
+  shot: false,
+  aimedUp: false,
+  climbed: false,
+  grappled: false,
+  weaponGot: false,
+  bossKilled: false,
+};
+
+function startTutorial() {
+  tutorialActive = true;
+  tutorialStep = 0;
+  tutorialTimer = 0;
+  tutorialChecks = { moved: 0, jumped: false, shot: false, aimedUp: false, climbed: false, grappled: false, weaponGot: false, bossKilled: false };
+  stage = 0;
+  gameMode = 'campaign';
+  applyDifficulty();
+  resetRunStats();
+  gameState = 'playing';
+  overlay.classList.add('hidden');
+  hud.classList.remove('hidden');
+  initTutorialLevel();
+}
+
+function initTutorialLevel() {
+  // Create a custom hand-crafted tutorial level
+  const cols = 80;
+  const rows = 20;
+  const groundRow = 14;
+  const map = [];
+  for (let r = 0; r < rows; r++) {
+    map[r] = [];
+    for (let c = 0; c < cols; c++) {
+      if (r >= groundRow) map[r][c] = 1;
+      else map[r][c] = 0;
+    }
+  }
+
+  // Gap for jump training (cols 18-20)
+  for (let r = groundRow; r < rows; r++) {
+    map[r][18] = 0; map[r][19] = 0; map[r][20] = 0;
+  }
+
+  // Target platform (wall to shoot at) — cols 28-30
+  map[groundRow - 3][30] = 1;
+  map[groundRow - 2][30] = 1;
+  map[groundRow - 1][30] = 1;
+
+  // Ladder at col 38
+  for (let r = groundRow - 6; r < groundRow; r++) {
+    map[r][38] = 2;
+  }
+  // Platform at top of ladder
+  for (let c = 36; c <= 42; c++) {
+    map[groundRow - 6][c] = 1;
+  }
+
+  // Grapple gap — cols 48-54, platform at col 55
+  for (let r = groundRow; r < rows; r++) {
+    for (let c = 48; c <= 54; c++) map[r][c] = 0;
+  }
+  // Ceiling bar for grapple
+  map[groundRow - 5][51] = 1;
+
+  // Weapon pickup area — col 60-62, raised platform
+  for (let c = 58; c <= 64; c++) {
+    map[groundRow - 2][c] = 1;
+  }
+
+  // Boss arena — cols 68-78
+  for (let c = 68; c <= 78; c++) {
+    map[groundRow - 1][c] = 1;
+  }
+  // Walls
+  for (let r = groundRow - 8; r < groundRow; r++) {
+    map[r][68] = 1;
+    map[r][78] = 1;
+  }
+
+  level = {
+    map, cols, rows, groundRow,
+    treasureMap: {},
+  };
+
+  player = createPlayer(40, selectedCharacter);
+  player.lives = 99;
+  player2 = null;
+  coopMode = false;
+
+  // Place player on ground
+  player.y = (groundRow - 1) * TILE - player.h;
+
+  // Clear arrays
+  enemies = [];
+  bullets = [];
+  enemyBullets = [];
+  particles = [];
+  popups = [];
+  powerups = [];
+  objects = [];
+  decorations = [];
+  treasureItems = [];
+  vehicles = [];
+
+  // Spawn tutorial targets (weak enemies that don't move)
+  for (let i = 0; i < 3; i++) {
+    enemies.push({
+      x: 26 * TILE + i * TILE * 2, y: (groundRow - 1) * TILE - 24,
+      w: 20, h: 24, hp: 1, maxHp: 1, speed: 0, score: 100,
+      color: '#ff4444', etype: 'soldier', isBoss: false, active: true,
+      facing: -1, fireTimer: 99999, shootRange: 0, leapTimer: 0,
+      shieldHp: 0, animFrame: 0, animTimer: 0,
+      patrol: false, pathDir: 0,
+    });
+  }
+
+  // Spawn weapon powerup at col 61
+  powerups.push({
+    x: 61 * TILE, y: (groundRow - 4) * TILE,
+    w: 16, h: 16, type: 'SPREAD', bobPhase: 0,
+  });
+
+  // Spawn tutorial boss at col 73
+  enemies.push({
+    x: 73 * TILE, y: (groundRow - 2) * TILE - 40,
+    w: 40, h: 40, hp: 15, maxHp: 15, speed: 0, score: 500,
+    color: '#ff0000', etype: 'boss', isBoss: true, active: true,
+    facing: -1, fireTimer: 120, shootRange: 200, leapTimer: 0,
+    shieldHp: 0, animFrame: 0, animTimer: 0,
+    patrol: false, pathDir: 0,
+    phase: 0, phaseTimer: 0,
+  });
+
+  camX = 0;
+  camY = 0;
+  freezeFrames = 0;
+  slowMo = 0;
+  shakeIntensity = 0;
+  shakeDuration = 0;
+  flashAlpha = 0;
+
+  spawnPopup(player.x + 40, player.y - 20, 'TUTORIAL START!', '#44ff44', 14);
+}
+
+function updateTutorial() {
+  if (!tutorialActive || gameState !== 'playing') return;
+  tutorialTimer++;
+
+  const step = TUTORIAL_STEPS[tutorialStep];
+  if (!step) return;
+
+  // Check step completion
+  switch (step.check) {
+    case 'move':
+      if (Math.abs(player.vx) > 0.5) tutorialChecks.moved++;
+      if (tutorialChecks.moved > 60) advanceTutorial();
+      break;
+    case 'jump':
+      if (!player.onGround && player.vy < 0) tutorialChecks.jumped = true;
+      if (tutorialChecks.jumped && player.x > 21 * TILE) advanceTutorial();
+      break;
+    case 'shoot':
+      if (bullets.length > 0) tutorialChecks.shot = true;
+      // Check if targets destroyed
+      const targetsLeft = enemies.filter(e => e.active && !e.isBoss && e.x < 35 * TILE).length;
+      if (tutorialChecks.shot && targetsLeft === 0) advanceTutorial();
+      break;
+    case 'aim':
+      if (player.aimY !== 0) tutorialChecks.aimedUp = true;
+      if (tutorialChecks.aimedUp) advanceTutorial();
+      break;
+    case 'climb':
+      if (player.climbing) tutorialChecks.climbed = true;
+      if (tutorialChecks.climbed && player.y < (level.groundRow - 4) * TILE) advanceTutorial();
+      break;
+    case 'grapple':
+      if (player.grapple) tutorialChecks.grappled = true;
+      if (tutorialChecks.grappled && player.x > 55 * TILE) advanceTutorial();
+      break;
+    case 'weapon':
+      if (player.weapon && player.weapon.name !== 'RIFLE') tutorialChecks.weaponGot = true;
+      if (tutorialChecks.weaponGot) advanceTutorial();
+      break;
+    case 'boss':
+      const bossAlive = enemies.some(e => e.isBoss && e.active);
+      if (!bossAlive && enemies.length > 0) {
+        tutorialChecks.bossKilled = true;
+        finishTutorial();
+      }
+      break;
+  }
+}
+
+function advanceTutorial() {
+  tutorialStep++;
+  tutorialTimer = 0;
+  if (tutorialStep < TUTORIAL_STEPS.length) {
+    const step = TUTORIAL_STEPS[tutorialStep];
+    spawnPopup(player.x + player.w / 2, player.y - 30, step.msg, '#44ffaa', 10);
+  }
+}
+
+function finishTutorial() {
+  tutorialActive = false;
+  tutorialComplete = true;
+  try { localStorage.setItem('contraForce_tutorialDone', '1'); } catch(e) {}
+  spawnPopup(player.x + player.w / 2, player.y - 40, 'TUTORIAL COMPLETE!', '#ffcc00', 16);
+  playSound('victory');
+  triggerFlash('#ffcc00', 0.5);
+  setTimeout(() => {
+    stage = 1;
+    gameState = 'title';
+    showOverlay('CONTRA FORCE', '⚡ RUN & GUN ⚡', 'PRESS ENTER TO START');
+  }, 3000);
+}
+
+function drawTutorialHUD() {
+  if (!tutorialActive) return;
+  const step = TUTORIAL_STEPS[tutorialStep];
+  if (!step) return;
+
+  // Instruction banner at top
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.fillRect(0, 0, GAME_W, 28);
+
+  ctx.font = '8px "Press Start 2P"';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#44ffaa';
+  ctx.fillText(step.msg, GAME_W / 2, 12);
+
+  // Hint below
+  ctx.font = '6px "Press Start 2P"';
+  ctx.fillStyle = '#888';
+  const blinkAlpha = 0.4 + Math.sin(Date.now() * 0.006) * 0.3;
+  ctx.globalAlpha = blinkAlpha;
+  ctx.fillText(step.hint, GAME_W / 2, 23);
+  ctx.globalAlpha = 1;
+  ctx.textAlign = 'left';
+
+  // Step progress
+  ctx.font = '6px "Press Start 2P"';
+  ctx.fillStyle = '#666';
+  ctx.fillText(`STEP ${tutorialStep + 1}/${TUTORIAL_STEPS.length}`, 6, GAME_H - 6);
+}
+
+// ============================================================
+//  PARTICLE EDITOR (ADMIN PANEL)
+// ============================================================
+
+// Particle presets that can be tweaked live
+let particlePresets = {
+  explosion: { count: 30, speed: 6, life: 35, color: '#ff4400', size: 3, gravity: 0.2 },
+  death:     { count: 40, speed: 7, life: 40, color: '#ff4400', sizeMin: 1, sizeMax: 3, gravity: 0 },
+  glow:      { count: 10, speed: 4, life: 40, color: '#ff8800', sizeMin: 2, sizeMax: 4 },
+  ring:      { count: 12, speed: 0.15, life: 20, color: '#ff6600', size: 3 },
+  debris:    { count: 6, speed: 5, life: 60, color: '#666666', sizeMin: 3, sizeMax: 5, gravity: 0.2 },
+};
+
+function getParticlePreset(name) {
+  return particlePresets[name] || particlePresets.explosion;
+}
+
+function particleEditorTestEffect(presetName) {
+  const p = getParticlePreset(presetName);
+  const cx = player ? player.x + player.w / 2 : GAME_W / 2;
+  const cy = player ? player.y + player.h / 2 : GAME_H / 2;
+
+  if (presetName === 'ring') {
+    spawnRing(cx, cy, p.color, p.speed * 500, p.count);
+  } else if (presetName === 'glow') {
+    spawnGlowParticles(cx, cy, p.color, p.count, p.speed, p.life);
+  } else if (presetName === 'debris') {
+    spawnDebris(cx, cy, p.color, p.count);
+  } else {
+    spawnParticles(cx, cy, p.color, p.count, p.speed, p.life);
+  }
+  addLight(cx, cy, 80, 'rgba(255,100,0,0.5)', 0.5, 15);
+  triggerShake(6, 8);
+}
+
+function updateParticleEditorUI() {
+  const container = document.getElementById('particleEditorPresets');
+  if (!container) return;
+  let html = '';
+  for (const [name, p] of Object.entries(particlePresets)) {
+    html += `<div style="margin-bottom:8px;border:1px solid #333;padding:6px;border-radius:4px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <span style="color:#ffaa44;font-size:8px;text-transform:uppercase;">${name}</span>
+        <button class="admin-btn" onclick="particleEditorTestEffect('${name}')" style="font-size:8px;padding:2px 6px;background:#331100;color:#ff8844;border:1px solid #ff6600;">▶ TEST</button>
+      </div>
+      <div class="admin-row"><label>Count</label><input type="range" min="1" max="80" step="1" value="${p.count}" oninput="particlePresets.${name}.count=+this.value;this.nextElementSibling.textContent=this.value"><span class="val">${p.count}</span></div>
+      <div class="admin-row"><label>Speed</label><input type="range" min="0.5" max="15" step="0.5" value="${p.speed}" oninput="particlePresets.${name}.speed=+this.value;this.nextElementSibling.textContent=this.value"><span class="val">${p.speed}</span></div>
+      <div class="admin-row"><label>Life</label><input type="range" min="5" max="120" step="5" value="${p.life}" oninput="particlePresets.${name}.life=+this.value;this.nextElementSibling.textContent=this.value"><span class="val">${p.life}</span></div>
+      <div class="admin-row"><label>Color</label><input type="color" value="${p.color}" oninput="particlePresets.${name}.color=this.value" style="width:40px;height:20px;border:1px solid #555;cursor:pointer;"></div>
+    </div>`;
+  }
+  container.innerHTML = html;
 }
 
 // --- STAGE THEMES ---
@@ -6974,7 +7797,7 @@ function initGame() {
 
 // --- UPDATE ---
 function update() {
-  if (gameState !== 'playing') return;
+  if (gameState !== 'playing' && gameState !== 'demo') return;
 
   // Guest in online multiplayer: don't run simulation locally (state comes from host)
   if (mpRole === 'guest' && mpConnected) return;
@@ -8456,12 +9279,16 @@ function updatePlayer(p, getLeft, getRight, getUp, getDown, getJump, getJumpKey,
                 // Story mode: play epilogue before victory screen
                 if (storyMode && STORY.epilogue) {
                   playCutscene('epilogue', () => {
+                    startCredits(() => {
+                      gameState = 'victory';
+                      showOverlay('VICTORY!', `FINAL SCORE: ${score}`, 'PRESS ENTER TO PLAY AGAIN');
+                    });
+                  });
+                } else {
+                  startCredits(() => {
                     gameState = 'victory';
                     showOverlay('VICTORY!', `FINAL SCORE: ${score}`, 'PRESS ENTER TO PLAY AGAIN');
                   });
-                } else {
-                  gameState = 'victory';
-                  showOverlay('VICTORY!', `FINAL SCORE: ${score}`, 'PRESS ENTER TO PLAY AGAIN');
                 }
               }
             }, 2000);
@@ -10951,6 +11778,7 @@ function showOverlay(title, subtitle, action) {
     <div style="display:flex; gap:12px; margin-top:8px; align-items:center;">
       <button onclick="toggleAchievementsPanel()" style="padding:6px 14px; font-family:'Press Start 2P',monospace; font-size:8px; background:rgba(60,40,10,0.7); color:#ffaa00; border:1px solid #ffaa00; border-radius:4px; cursor:pointer;">🏆 ACHIEVEMENTS</button>
       <button onclick="toggleLeaderboardPanel()" style="padding:6px 14px; font-family:'Press Start 2P',monospace; font-size:8px; background:rgba(10,40,60,0.7); color:#44ddff; border:1px solid #44ddff; border-radius:4px; cursor:pointer;">📊 LEADERBOARD</button>
+      <button onclick="startTutorial()" style="padding:6px 14px; font-family:'Press Start 2P',monospace; font-size:8px; background:rgba(10,60,30,0.7); color:#44ff88; border:1px solid #44ff88; border-radius:4px; cursor:pointer;">📖 TUTORIAL</button>
     </div>
     <div style="margin-top:6px; display:flex; align-items:center; gap:8px; justify-content:center;">
       <label style="font-family:'Press Start 2P',monospace; font-size:7px; color:#cc88ff; cursor:pointer; display:flex; align-items:center; gap:6px;">
@@ -11058,13 +11886,28 @@ function gameLoop() {
   updateTransition();
   updateLights();
   updateAnimatedTiles();
+  updateTutorial();
   mpTick();
 
   if (gameState === 'playing') {
     draw();
+    if (tutorialActive) drawTutorialHUD();
     if (adminOpen) updateMinimap();
   } else if (gameState === 'charSelect') {
     drawCharSelect();
+  } else if (gameState === 'title') {
+    drawTitleScreen();
+  } else if (gameState === 'demo') {
+    updateDemoAI();
+    draw();
+    // Semi-transparent overlay so game is visible behind title elements
+    ctx.fillStyle = 'rgba(0,0,10,0.55)';
+    ctx.fillRect(0, 0, GAME_W, GAME_H);
+    // Draw just the logo + demo indicator
+    drawDemoOverlay();
+  } else if (creditsActive) {
+    updateCredits();
+    drawCredits();
   }
 
   requestAnimationFrame(gameLoop);
@@ -11300,6 +12143,28 @@ function actuallyStartGame() {
 window.addEventListener('keydown', e => {
   if (rebindingAction) return; // Don't handle game keys during rebind
   if (csActive) return; // Don't handle game keys during cutscenes
+
+  // Demo mode — any key press stops demo and returns to title
+  if (gameState === 'demo' || titleDemoActive) {
+    stopDemoMode();
+    return;
+  }
+
+  // Credits — Enter or Escape skips credits
+  if (creditsActive && (e.code === 'Enter' || e.code === 'Escape')) {
+    creditsActive = false;
+    if (creditsCallback) {
+      creditsCallback();
+      creditsCallback = null;
+    }
+    return;
+  }
+
+  // Title screen — reset demo timer on any keypress
+  if (gameState === 'title') {
+    titleDemoTimer = 0;
+  }
+
   if (gameState === 'charSelect') { handleCharSelectKey(e); return; }
   if (e.code === 'Enter') {
     startGameSession();
@@ -12039,6 +12904,12 @@ document.getElementById('lbHudBtn').addEventListener('click', toggleLeaderboardP
 
 // Initialize HUD counter
 updateAchHud();
+
+// Initialize particle editor UI
+updateParticleEditorUI();
+
+// Initialize title screen
+initTitleStars();
 
 gameLoop();
 </script>
