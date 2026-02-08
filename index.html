@@ -940,12 +940,28 @@
   .mp-hud-host { background: rgba(0,60,0,0.6); color: #44ff88; border: 1px solid #44ff88; }
   .mp-hud-guest { background: rgba(0,30,60,0.6); color: #44ddff; border: 1px solid #44ddff; }
   .mp-hud-ping { font-size: 6px; color: #999; margin-left: 8px; }
+
+  /* --- CUTSCENE / STORY MODE --- */
+  #cutsceneOverlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 9050; display: none; cursor: pointer;
+  }
+  #cutsceneOverlay.active { display: block; }
+  .cs-skip-hint {
+    position: absolute; bottom: 8px; right: 12px;
+    font-family: 'Press Start 2P', monospace; font-size: 7px;
+    color: rgba(255,255,255,0.4); pointer-events: none;
+    animation: csBlink 2s infinite;
+  }
+  @keyframes csBlink { 0%,100%{opacity:0.4} 50%{opacity:0.15} }
 </style>
 </head>
 <body>
 
 <div id="gameWrapper">
   <canvas id="game"></canvas>
+  <!-- CUTSCENE OVERLAY (canvas-based) -->
+  <div id="cutsceneOverlay"><span class="cs-skip-hint">CLICK / ENTER to advance &bull; ESC to skip</span></div>
   <!-- MUSIC/SFX CONTROLS -->
   <div class="music-controls">
     <button class="music-btn" id="musicToggle" onclick="toggleMusic()" title="Toggle Music">🎵</button>
@@ -1258,6 +1274,19 @@
       </div>
       <div id="mpAdminStatus" style="font-size:9px;color:#888;margin-top:6px;">Status: Not connected</div>
       <div class="admin-grid-info" style="margin-top:4px">Host or join an online co-op game via WebRTC. No server required — peer-to-peer with copy/paste codes.</div>
+    </div>
+  </div>
+
+  <!-- STORY MODE -->
+  <div class="admin-section collapsed">
+    <div class="admin-section-title" onclick="this.parentElement.classList.toggle('collapsed')">Story Mode</div>
+    <div class="admin-section-body">
+      <div class="admin-row"><label>Story Mode</label><input type="checkbox" id="s_storyMode" checked onchange="storyMode=this.checked;localStorage.setItem('contraForce_storyMode',storyMode?'1':'0')"></div>
+      <div class="admin-grid-info" style="margin-top:4px">When enabled, narrative cutscenes play between stages. Disable for pure arcade action.</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">
+        <button class="admin-btn" onclick="playCutscene('prologue',()=>{})" style="background:#1a0033;color:#cc88ff;border:1px solid #cc88ff;">▶ Preview Prologue</button>
+        <button class="admin-btn" onclick="playCutscene('epilogue',()=>{})" style="background:#1a0033;color:#cc88ff;border:1px solid #cc88ff;">▶ Preview Epilogue</button>
+      </div>
     </div>
   </div>
 
@@ -2407,9 +2436,346 @@ function initTouchControls() {
 }
 
 // --- GAME STATE ---
-let gameState = 'title'; // title, playing, gameover, victory
+let gameState = 'title'; // title, playing, gameover, victory, cutscene
 let score = 0;
 let stage = 1;
+
+// ============================================================
+//  STORY MODE & CUTSCENE ENGINE
+// ============================================================
+
+let storyMode = localStorage.getItem('contraForce_storyMode') !== '0'; // on by default
+let csActive = false;
+let csCallback = null;
+
+// --- STORY DATA ---
+// Each entry: array of scenes. Each scene: { speaker, portrait, text, bg, shake?, flash? }
+// portrait: emoji-style char code drawn procedurally  bg: gradient stops or color
+const STORY = {
+  prologue: [
+    { speaker: 'COMMAND', portrait: '📡', bg: '#0a0a1e',
+      text: 'YEAR 2637. An alien signal has been detected from deep space. Hostile forces have invaded Earth, establishing forward bases across the globe.' },
+    { speaker: 'COMMAND', portrait: '📡', bg: '#0a0a1e',
+      text: 'All conventional military forces have been overwhelmed. Our last hope rests with two elite commandos from the Special Forces unit CONTRA.' },
+    { speaker: 'LANCE', portrait: '🔴', bg: '#1a0a0a',
+      text: 'Lance here. Armed and ready. Whatever those alien scum throw at us, we\'ll throw it right back.' },
+    { speaker: 'BILL', portrait: '🔵', bg: '#0a0a1a',
+      text: 'Bill reporting in. Intel says the first base is hidden deep in the jungle. Let\'s move out and take them down.' },
+    { speaker: 'COMMAND', portrait: '📡', bg: '#0a0a1e',
+      text: 'Godspeed, soldiers. The fate of humanity rests in your hands. Engage!' },
+  ],
+
+  stage1: [
+    { speaker: 'BILL', portrait: '🔵', bg: '#0a1a0a',
+      text: 'This jungle is crawling with enemy patrols. Stay sharp — the outer defense perimeter should be just ahead.' },
+    { speaker: 'LANCE', portrait: '🔴', bg: '#1a1a0a',
+      text: 'I see gun turrets in the canopy. They\'ve fortified this whole region. Let\'s clear a path.' },
+  ],
+  stage2: [
+    { speaker: 'COMMAND', portrait: '📡', bg: '#1a0a0a',
+      text: 'Good work in the jungle. Satellite imagery shows ancient ruins ahead — the enemy has converted them into a forward base.' },
+    { speaker: 'LANCE', portrait: '🔴', bg: '#2e1a0a',
+      text: 'Ruins? Perfect cover for an ambush. I\'ll keep my spread gun ready.' },
+  ],
+  stage3: [
+    { speaker: 'BILL', portrait: '🔵', bg: '#041428',
+      text: 'The next target is an underwater base. They\'re manufacturing weapons deep beneath the surface.' },
+    { speaker: 'LANCE', portrait: '🔴', bg: '#0a2040',
+      text: 'Underwater combat... great. At least we\'ve got waterproof ammo. Let\'s flood their plans.' },
+  ],
+  stage4: [
+    { speaker: 'COMMAND', portrait: '📡', bg: '#02020a',
+      text: 'We\'ve traced their communications to an orbital space station. A shuttle is standing by for launch.' },
+    { speaker: 'BILL', portrait: '🔵', bg: '#06061a',
+      text: 'Zero gravity, zero mercy. Those aliens picked the wrong planet to invade.' },
+  ],
+  stage5: [
+    { speaker: 'COMMAND', portrait: '📡', bg: '#cc8844',
+      text: 'The space station\'s data cores reveal a desert supply depot — their main weapons cache on Earth.' },
+    { speaker: 'LANCE', portrait: '🔴', bg: '#aa5522',
+      text: 'A desert fortress? The heat\'ll be brutal, but we\'ve survived worse. Moving out.' },
+  ],
+  stage6: [
+    { speaker: 'BILL', portrait: '🔵', bg: '#667799',
+      text: 'Intel suggests a research facility hidden in the arctic mountains. They\'re developing a superweapon.' },
+    { speaker: 'LANCE', portrait: '🔴', bg: '#445566',
+      text: 'Snow fortress... frostbite and bullets. My favorite combination. Let\'s shut it down.' },
+  ],
+  stage7: [
+    { speaker: 'COMMAND', portrait: '📡', bg: '#1a0a2e',
+      text: 'This is it — the enemy\'s main stronghold on Earth. All remaining forces are dug in here.' },
+    { speaker: 'BILL', portrait: '🔵', bg: '#2e1a4e',
+      text: 'The final assault. Everything we\'ve fought for leads to this moment. No retreat.' },
+    { speaker: 'LANCE', portrait: '🔴', bg: '#4a1a2e',
+      text: 'Let\'s finish this. For Earth. For everyone who\'s counting on us!' },
+  ],
+  stage8: [
+    { speaker: 'COMMAND', portrait: '📡', bg: '#2e0a00',
+      text: 'Incredible — sensors detect a hidden passage beneath the fortress, leading to a volcanic cavern. The aliens have a base underground!' },
+    { speaker: 'LANCE', portrait: '🔴', bg: '#5e1a00',
+      text: 'A volcano? They really don\'t want us finding this place. That means we\'re on the right track.' },
+  ],
+  stage9: [
+    { speaker: 'BILL', portrait: '🔵', bg: '#001a3e',
+      text: 'We\'ve broken into their cybernetic core. This is their command and control center — pure alien technology.' },
+    { speaker: 'COMMAND', portrait: '📡', bg: '#000a1e',
+      text: 'Be careful! The defenses here are fully automated. Their AI controls everything.' },
+  ],
+  stage10: [
+    { speaker: 'COMMAND', portrait: '📡', bg: '#1a0040',
+      text: 'You\'ve reached the heart of the invasion — the Alien Hive. Their queen controls the entire army from here.' },
+    { speaker: 'BILL', portrait: '🔵', bg: '#0a001e',
+      text: 'I can feel the walls... pulsing. This whole place is alive.' },
+    { speaker: 'LANCE', portrait: '🔴', bg: '#2a0060',
+      text: 'One last fight. We take down the queen, and this war is over. Let\'s make it count!' },
+  ],
+
+  epilogue: [
+    { speaker: '', portrait: '', bg: '#000000',
+      text: 'The Alien Queen falls. The hive shudders and begins to collapse around them.' },
+    { speaker: 'LANCE', portrait: '🔴', bg: '#1a0a0a', shake: true,
+      text: 'The whole place is coming down! We need to get out — NOW!' },
+    { speaker: 'BILL', portrait: '🔵', bg: '#0a0a1a',
+      text: 'I see daylight ahead! GO GO GO!' },
+    { speaker: '', portrait: '', bg: '#ffffff', flash: true,
+      text: 'A blinding flash erupts as the alien hive implodes. Silence follows.' },
+    { speaker: 'COMMAND', portrait: '📡', bg: '#0a0a1e',
+      text: 'We\'re reading your transponders... You made it! Both of you! The alien signatures are gone — it\'s over!' },
+    { speaker: 'BILL', portrait: '🔵', bg: '#0a1a0a',
+      text: 'We did it, Lance. Earth is safe.' },
+    { speaker: 'LANCE', portrait: '🔴', bg: '#1a0a0a',
+      text: 'Until the next invasion. But for now... let\'s enjoy the sunrise.' },
+    { speaker: '', portrait: '', bg: '#1a1a3e',
+      text: 'THE END. Thank you for playing CONTRA FORCE. The world is safe — because of you.' },
+  ],
+};
+
+// --- CUTSCENE RENDERER ---
+// Draws directly on the game canvas — no extra canvas needed
+function playCutscene(key, callback) {
+  const scenes = STORY[key];
+  if (!scenes || scenes.length === 0) { if (callback) callback(); return; }
+
+  csActive = true;
+  csCallback = callback;
+  let sceneIdx = 0;
+  let charIdx = 0;
+  let typeTimer = 0;
+  const TYPE_SPEED = 2; // frames per character
+  let waitingForInput = false;
+  let skipAll = false;
+
+  const csOverlay = document.getElementById('cutsceneOverlay');
+  csOverlay.classList.add('active');
+
+  // Advance to next scene or finish
+  function advance() {
+    if (skipAll) { finish(); return; }
+    if (!waitingForInput) {
+      // Show all text immediately
+      charIdx = scenes[sceneIdx].text.length;
+      waitingForInput = true;
+      return;
+    }
+    sceneIdx++;
+    if (sceneIdx >= scenes.length) { finish(); return; }
+    charIdx = 0;
+    typeTimer = 0;
+    waitingForInput = false;
+  }
+
+  function skip() {
+    skipAll = true;
+    finish();
+  }
+
+  function finish() {
+    csActive = false;
+    csOverlay.classList.remove('active');
+    // Remove listeners
+    csOverlay.removeEventListener('click', onCsClick);
+    document.removeEventListener('keydown', onCsKey);
+    if (csCallback) { const cb = csCallback; csCallback = null; cb(); }
+  }
+
+  function onCsClick(e) { e.stopPropagation(); advance(); }
+  function onCsKey(e) {
+    if (e.code === 'Escape') { e.preventDefault(); skip(); return; }
+    if (e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); advance(); }
+  }
+
+  csOverlay.addEventListener('click', onCsClick);
+  document.addEventListener('keydown', onCsKey);
+
+  // Render loop
+  function renderCutscene() {
+    if (!csActive) return;
+
+    const scene = scenes[sceneIdx];
+    const W = canvas.width, H = canvas.height;
+
+    // Background
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+    // Gradient or solid bg
+    if (scene.bg) {
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, scene.bg);
+      grad.addColorStop(1, '#000000');
+      ctx.fillStyle = grad;
+    } else {
+      ctx.fillStyle = '#000';
+    }
+    ctx.fillRect(0, 0, W, H);
+
+    // Optional flash
+    if (scene.flash && charIdx > 10) {
+      ctx.fillStyle = `rgba(255,255,255,${Math.max(0, 0.3 - charIdx * 0.005)})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // Subtle particle/star field
+    const time = Date.now() * 0.001;
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    for (let i = 0; i < 40; i++) {
+      const sx = ((Math.sin(i * 127.1 + time * 0.3) + 1) * 0.5) * W;
+      const sy = ((Math.cos(i * 311.7 + time * 0.2) + 1) * 0.5) * H * 0.55;
+      const sr = 0.5 + Math.sin(i * 73.3 + time) * 0.3;
+      ctx.fillRect(sx, sy, sr, sr);
+    }
+
+    // Portrait (large emoji area left side)
+    if (scene.portrait) {
+      // Portrait background circle
+      const px = 100, py = H * 0.38;
+      ctx.beginPath();
+      ctx.arc(px, py, 44, 0, Math.PI * 2);
+      const pColor = scene.portrait === '🔴' ? '#ff4444' : scene.portrait === '🔵' ? '#4488ff' : '#44ddff';
+      ctx.fillStyle = pColor + '22';
+      ctx.fill();
+      ctx.strokeStyle = pColor + '88';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Draw a simple character icon
+      ctx.font = '36px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(scene.portrait, px, py);
+
+      // Speaker name label
+      if (scene.speaker) {
+        ctx.font = "bold 11px 'Press Start 2P', monospace";
+        ctx.fillStyle = pColor;
+        ctx.textAlign = 'center';
+        ctx.fillText(scene.speaker, px, py + 56);
+      }
+    }
+
+    // Text box area (bottom portion)
+    const boxY = H * 0.62;
+    const boxH = H * 0.34;
+    const boxX = 30;
+    const boxW = W - 60;
+
+    // Text box background
+    ctx.fillStyle = 'rgba(0,0,0,0.75)';
+    ctx.strokeStyle = 'rgba(68,221,255,0.4)';
+    ctx.lineWidth = 1;
+    const r = 8;
+    ctx.beginPath();
+    ctx.moveTo(boxX + r, boxY);
+    ctx.lineTo(boxX + boxW - r, boxY);
+    ctx.arcTo(boxX + boxW, boxY, boxX + boxW, boxY + r, r);
+    ctx.lineTo(boxX + boxW, boxY + boxH - r);
+    ctx.arcTo(boxX + boxW, boxY + boxH, boxX + boxW - r, boxY + boxH, r);
+    ctx.lineTo(boxX + r, boxY + boxH);
+    ctx.arcTo(boxX, boxY + boxH, boxX, boxY + boxH - r, r);
+    ctx.lineTo(boxX, boxY + r);
+    ctx.arcTo(boxX, boxY, boxX + r, boxY, r);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Speaker name in box
+    if (scene.speaker) {
+      ctx.font = "9px 'Press Start 2P', monospace";
+      const nameColor = scene.portrait === '🔴' ? '#ff6666' : scene.portrait === '🔵' ? '#6688ff' : '#44ddff';
+      ctx.fillStyle = nameColor;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(scene.speaker, boxX + 14, boxY + 10);
+    }
+
+    // Typewriter text
+    if (!waitingForInput) {
+      typeTimer++;
+      if (typeTimer >= TYPE_SPEED) {
+        typeTimer = 0;
+        if (charIdx < scene.text.length) charIdx++;
+        else waitingForInput = true;
+      }
+    }
+
+    const displayText = scene.text.substring(0, charIdx);
+    ctx.font = "9px 'Press Start 2P', monospace";
+    ctx.fillStyle = '#ddd';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+
+    // Word-wrap text
+    const maxLineW = boxW - 28;
+    const lineH = 16;
+    const words = displayText.split(' ');
+    let line = '';
+    let ly = boxY + (scene.speaker ? 28 : 14);
+    for (let w = 0; w < words.length; w++) {
+      const test = line + (line ? ' ' : '') + words[w];
+      if (ctx.measureText(test).width > maxLineW && line) {
+        ctx.fillText(line, boxX + 14, ly);
+        ly += lineH;
+        line = words[w];
+      } else {
+        line = test;
+      }
+    }
+    if (line) ctx.fillText(line, boxX + 14, ly);
+
+    // Blinking advance indicator
+    if (waitingForInput) {
+      const blink = Math.sin(Date.now() * 0.005) > 0;
+      if (blink) {
+        ctx.fillStyle = '#44ddff';
+        ctx.font = "8px 'Press Start 2P', monospace";
+        ctx.textAlign = 'right';
+        ctx.fillText('▼', boxX + boxW - 12, boxY + boxH - 12);
+      }
+    }
+
+    // Scene counter
+    ctx.font = "7px 'Press Start 2P', monospace";
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    ctx.textAlign = 'left';
+    ctx.fillText(`${sceneIdx + 1}/${scenes.length}`, 10, H - 10);
+
+    // Optional screen shake
+    if (scene.shake && charIdx > 0 && charIdx < scene.text.length) {
+      // Already rendered, just a visual note — actual shake by offset would require more complex transforms
+    }
+
+    ctx.restore();
+    requestAnimationFrame(renderCutscene);
+  }
+
+  renderCutscene();
+}
+
+// Get the cutscene key for a stage intro
+function getCutsceneKey(stageNum) {
+  return 'stage' + stageNum;
+}
 
 // ============================================================
 //  ACHIEVEMENT & LEADERBOARD SYSTEM
@@ -5651,7 +6017,12 @@ function updatePlayer(p, getLeft, getRight, getUp, getDown, getJump, getJumpKey,
                 stageStartTime = Date.now();
                 checkAchievements();
                 stage++;
-                initGame();
+                // Story mode: play next stage cutscene before starting
+                if (storyMode && STORY[getCutsceneKey(stage)]) {
+                  playCutscene(getCutsceneKey(stage), () => { initGame(); });
+                } else {
+                  initGame();
+                }
               } else {
                 playSound('victory');
                 runStats.stagesCleared++;
@@ -5659,8 +6030,16 @@ function updatePlayer(p, getLeft, getRight, getUp, getDown, getJump, getJumpKey,
                 if (runStats.noDeathRun) unlockAchievement('flawless');
                 checkAchievements();
                 submitScore('victory');
-                gameState = 'victory';
-                showOverlay('VICTORY!', `FINAL SCORE: ${score}`, 'PRESS ENTER TO PLAY AGAIN');
+                // Story mode: play epilogue before victory screen
+                if (storyMode && STORY.epilogue) {
+                  playCutscene('epilogue', () => {
+                    gameState = 'victory';
+                    showOverlay('VICTORY!', `FINAL SCORE: ${score}`, 'PRESS ENTER TO PLAY AGAIN');
+                  });
+                } else {
+                  gameState = 'victory';
+                  showOverlay('VICTORY!', `FINAL SCORE: ${score}`, 'PRESS ENTER TO PLAY AGAIN');
+                }
               }
             }, 2000);
           } else {
@@ -7658,9 +8037,15 @@ function showOverlay(title, subtitle, action) {
     <div class="blink">— ${action} —</div>
     ${diffHtml}
     <button id="startBtn">START GAME</button>
-    <div style="display:flex; gap:12px; margin-top:8px;">
+    <div style="display:flex; gap:12px; margin-top:8px; align-items:center;">
       <button onclick="toggleAchievementsPanel()" style="padding:6px 14px; font-family:'Press Start 2P',monospace; font-size:8px; background:rgba(60,40,10,0.7); color:#ffaa00; border:1px solid #ffaa00; border-radius:4px; cursor:pointer;">🏆 ACHIEVEMENTS</button>
       <button onclick="toggleLeaderboardPanel()" style="padding:6px 14px; font-family:'Press Start 2P',monospace; font-size:8px; background:rgba(10,40,60,0.7); color:#44ddff; border:1px solid #44ddff; border-radius:4px; cursor:pointer;">📊 LEADERBOARD</button>
+    </div>
+    <div style="margin-top:6px; display:flex; align-items:center; gap:8px; justify-content:center;">
+      <label style="font-family:'Press Start 2P',monospace; font-size:7px; color:#cc88ff; cursor:pointer; display:flex; align-items:center; gap:6px;">
+        <input type="checkbox" id="storyModeOverlay" ${storyMode ? 'checked' : ''} onchange="storyMode=this.checked;localStorage.setItem('contraForce_storyMode',storyMode?'1':'0');const a=document.getElementById('s_storyMode');if(a)a.checked=storyMode;" style="cursor:pointer;">
+        📖 STORY MODE
+      </label>
     </div>
     ${extraBtns}
     ${saveLoadBtns}
@@ -7679,6 +8064,12 @@ function showOverlay(title, subtitle, action) {
 
 // --- GAME LOOP ---
 function gameLoop() {
+  // Cutscene active — skip normal game loop, cutscene has its own render loop
+  if (csActive) {
+    requestAnimationFrame(gameLoop);
+    return;
+  }
+
   // Hit freeze - skip update but still draw
   if (freezeFrames > 0) {
     freezeFrames--;
@@ -7749,13 +8140,41 @@ function startGameSession() {
     showSaveToast('Waiting for host to start...', 'success');
     return;
   }
+  if (csActive) return; // Don't start while cutscene is playing
   if (gameState === 'title' || gameState === 'gameover' || gameState === 'victory') {
     playSound('menu_select');
     initAudio();
+    const wasTitle = gameState === 'title';
     if (gameState === 'gameover' || gameState === 'victory') {
       score = 0;
       stage = 1;
     }
+
+    // Story mode: play prologue (on fresh start) + stage intro cutscene
+    if (storyMode && !csActive) {
+      overlay.classList.add('hidden');
+      const launchGame = () => {
+        const stageKey = getCutsceneKey(stage);
+        if (STORY[stageKey]) {
+          playCutscene(stageKey, () => { actuallyStartGame(); });
+        } else {
+          actuallyStartGame();
+        }
+      };
+      if (STORY.prologue && (wasTitle || stage === 1)) {
+        playCutscene('prologue', launchGame);
+      } else {
+        launchGame();
+      }
+      return;
+    }
+
+    // Non-story-mode: start immediately
+    actuallyStartGame();
+  }
+}
+
+function actuallyStartGame() {
     applyDifficulty();
     resetRunStats();
     stageStartTime = Date.now();
@@ -7778,12 +8197,12 @@ function startGameSession() {
                  groundRow: level.groundRow, treasureMap: level.treasureMap || {} }
       });
     }
-  }
 }
 
 // Keyboard start (Enter key)
 window.addEventListener('keydown', e => {
   if (rebindingAction) return; // Don't handle game keys during rebind
+  if (csActive) return; // Don't handle game keys during cutscenes
   if (e.code === 'Enter') {
     startGameSession();
   }
@@ -7914,6 +8333,9 @@ function syncAdminPanel() {
   document.getElementById('s_editorMode').checked = editorMode;
   document.getElementById('s_paused').checked = paused;
   document.getElementById('s_coopMode').checked = coopMode;
+  // Story mode sync
+  const storyEl = document.getElementById('s_storyMode');
+  if (storyEl) storyEl.checked = storyMode;
 }
 
 // Bind slider events
