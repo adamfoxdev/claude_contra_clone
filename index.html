@@ -1429,6 +1429,51 @@
     </div>
   </div>
 
+  <!-- ACCESSIBILITY -->
+  <div class="admin-section collapsed">
+    <div class="admin-section-title" onclick="this.parentElement.classList.toggle('collapsed')">Accessibility ♿</div>
+    <div class="admin-section-body">
+      <div class="admin-row"><label>Color Blind Mode</label>
+        <select id="s_colorBlind" onchange="accessColorBlindMode=this.value" style="background:#1a1a2e;color:#ccc;border:1px solid #555;padding:2px 4px;font-size:9px;">
+          <option value="none">None</option>
+          <option value="protanopia">Protanopia (Red)</option>
+          <option value="deuteranopia">Deuteranopia (Green)</option>
+          <option value="tritanopia">Tritanopia (Blue)</option>
+        </select>
+      </div>
+      <div class="admin-row"><label>Aim Assist</label><input type="checkbox" id="s_aimAssist" onchange="accessAimAssist=this.checked"></div>
+      <div class="admin-row"><label>Aim Strength</label><input type="range" min="10" max="80" step="5" value="30" id="s_aimStr" oninput="accessAimAssistStrength=this.value/100;document.getElementById('v_aimStr').textContent=this.value+'%'"><span class="val" id="v_aimStr">30%</span></div>
+      <div class="admin-row"><label>Infinite Lives</label><input type="checkbox" id="s_infLives" onchange="accessInfiniteLives=this.checked"></div>
+      <div class="admin-row"><label>Enemy Speed</label><input type="range" min="20" max="150" step="10" value="100" id="s_enemySpd" oninput="accessEnemySpeedMult=this.value/100;document.getElementById('v_enemySpd').textContent=this.value+'%'"><span class="val" id="v_enemySpd">100%</span></div>
+      <div class="admin-row"><label>Enemy Bullet Speed</label><input type="range" min="20" max="150" step="10" value="100" id="s_bulletTime" oninput="accessBulletTimeMult=this.value/100;document.getElementById('v_bulletTime').textContent=this.value+'%'"><span class="val" id="v_bulletTime">100%</span></div>
+      <div class="admin-row"><label>High Contrast HUD</label><input type="checkbox" id="s_highContrast" onchange="accessHighContrastHUD=this.checked"></div>
+      <div class="admin-row"><label>Large HUD Text</label><input type="checkbox" id="s_largeHUD" onchange="accessLargeHUD=this.checked"></div>
+      <div class="admin-row"><label>Reduce Screen Shake</label><input type="checkbox" id="s_reduceShake" onchange="accessScreenShakeReduced=this.checked"></div>
+      <div class="admin-grid-info" style="margin-top:4px">Color-blind filters, aim assist, difficulty modifiers, and HUD customization for improved accessibility.</div>
+    </div>
+  </div>
+
+  <!-- SPEEDRUN -->
+  <div class="admin-section collapsed">
+    <div class="admin-section-title" onclick="this.parentElement.classList.toggle('collapsed')">Speedrun Timer ⏱</div>
+    <div class="admin-section-body">
+      <div class="admin-row"><label>Enable Timer</label><input type="checkbox" id="s_speedrun" onchange="speedrunEnabled=this.checked;if(this.checked)initSpeedrun()"></div>
+      <div class="admin-row"><label>Clear PB Splits</label><button onclick="if(confirm('Clear all PB splits?')){speedrunPB=[];saveSpeedrunPB();}" style="padding:3px 8px;font-size:10px;cursor:pointer;background:#330000;color:#ff6666;border:1px solid #ff4444;border-radius:3px;">🗑️ CLEAR</button></div>
+      <div id="speedrunPBList" style="font-size:8px;color:#88aa88;margin-top:6px;max-height:80px;overflow-y:auto;"></div>
+      <div class="admin-grid-info" style="margin-top:4px">Shows live timer with per-stage splits. Compares against your Personal Best. Great for Time Attack mode!</div>
+    </div>
+  </div>
+
+  <!-- WEAPON FUSION -->
+  <div class="admin-section collapsed">
+    <div class="admin-section-title" onclick="this.parentElement.classList.toggle('collapsed')">Weapon Fusion ⚔</div>
+    <div class="admin-section-body">
+      <div class="admin-grid-info">Pick up two different weapons within 5 seconds to fuse them into a powerful combo weapon!</div>
+      <div id="fusionListAdmin" style="font-size:7px;color:#aaa;margin-top:6px;max-height:120px;overflow-y:auto;"></div>
+      <button class="admin-btn" onclick="showFusionList()" style="margin-top:4px;background:#1a1a00;color:#ffaa44;border:1px solid #ffaa44;">📋 Show Fusion Recipes</button>
+    </div>
+  </div>
+
 </div>
 
 <!-- SAVE TOAST -->
@@ -5077,6 +5122,726 @@ function updateParticleEditorUI() {
   container.innerHTML = html;
 }
 
+// ============================================================
+//  MINI-BOSS TYPES
+// ============================================================
+const MINI_BOSS_TYPES = {
+  CHARGER: {
+    name: 'CHARGER', w: 32, h: 38, hp: 15, speed: 0, score: 800,
+    color: '#dd4444', fireRate: 80, shootRange: 350, etype: 'miniboss',
+    pattern: 'charge', // charges at player
+  },
+  SHIELDED: {
+    name: 'SHIELDED', w: 30, h: 36, hp: 20, speed: 0.5, score: 900,
+    color: '#4488dd', fireRate: 50, shootRange: 300, etype: 'miniboss',
+    pattern: 'shielded', // front shield, must hit from behind
+  },
+  ARTILLERY: {
+    name: 'ARTILLERY', w: 34, h: 32, hp: 18, speed: 0, score: 850,
+    color: '#88aa44', fireRate: 35, shootRange: 500, etype: 'miniboss',
+    pattern: 'artillery', // lobs arcing projectiles
+  },
+  SPLITTER: {
+    name: 'SPLITTER', w: 28, h: 34, hp: 12, speed: 1, score: 750,
+    color: '#cc44cc', fireRate: 70, shootRange: 280, etype: 'miniboss',
+    pattern: 'splitter', // splits into 2 smaller enemies on death
+  },
+  JUMPSTOMP: {
+    name: 'JUMP STOMPER', w: 30, h: 36, hp: 16, speed: 0.6, score: 850,
+    color: '#dd8800', fireRate: 0, shootRange: 200, etype: 'miniboss',
+    pattern: 'jumpstomp', // jumps high and ground-pounds
+  },
+};
+
+function getMiniBossForStage(stageNum) {
+  const types = Object.values(MINI_BOSS_TYPES);
+  return types[(stageNum - 1) % types.length];
+}
+
+function spawnMiniBosses(level, stageNum) {
+  const rng = seedRandom(stageNum * 31337);
+  const { cols, groundRow } = level;
+  // 1-2 mini-bosses per stage, placed at ~30% and ~60% of level
+  const positions = [Math.floor(cols * 0.3), Math.floor(cols * 0.6)];
+  const count = stageNum >= 5 ? 2 : 1;
+
+  for (let i = 0; i < count; i++) {
+    const mbType = getMiniBossForStage(stageNum + i);
+    const c = positions[i] + Math.floor(rng() * 6 - 3);
+    // Find ground
+    let ey = 0;
+    for (let r = 0; r < level.rows; r++) {
+      if (level.map[r][c] === 1) { ey = r * TILE - mbType.h; break; }
+    }
+    if (ey <= 0) continue;
+    const scaledHp = Math.round(mbType.hp * diffSettings.enemyHpMult * (1 + stageNum * 0.15));
+    enemies.push({
+      x: c * TILE, y: ey,
+      w: mbType.w, h: mbType.h,
+      hp: scaledHp, maxHp: scaledHp,
+      speed: mbType.speed, score: mbType.score,
+      color: mbType.color, fireRate: mbType.fireRate,
+      fireTimer: Math.floor(rng() * mbType.fireRate),
+      shootRange: mbType.shootRange,
+      active: false, facing: -1,
+      isMiniBoss: true,
+      mbPattern: mbType.pattern,
+      mbState: 'idle', mbTimer: 0,
+      damageMult: 1,
+      shieldActive: false,
+      etype: 'miniboss',
+      patrolStart: (c - 6) * TILE,
+      patrolEnd: (c + 6) * TILE,
+      dir: rng() < 0.5 ? 1 : -1,
+      vy: 0, onGround: false,
+      hitFlash: 0,
+    });
+  }
+}
+
+// ============================================================
+//  ENVIRONMENTAL HAZARDS
+// ============================================================
+let hazards = [];
+
+const HAZARD_TYPES = {
+  MOVING_PLATFORM: { name: 'Moving Platform', w: 64, h: 12, color: '#667788', htype: 'moving_platform' },
+  CRUSHER:         { name: 'Crusher', w: 48, h: 16, color: '#aa4444', htype: 'crusher' },
+  SPIKE_TRAP:      { name: 'Spike Trap', w: 32, h: 10, color: '#cc6644', htype: 'spike_trap' },
+  CONVEYOR_BELT:   { name: 'Conveyor Belt', w: 96, h: 8, color: '#888855', htype: 'conveyor' },
+  LASER_GRID:      { name: 'Laser Grid', w: 4, h: 64, color: '#ff2244', htype: 'laser_grid' },
+};
+
+function spawnHazards(level, stageNum) {
+  hazards = [];
+  const rng = seedRandom(stageNum * 77777);
+  const { cols, groundRow } = level;
+  const hazardDensity = Math.min(1.5, 0.5 + stageNum * 0.1);
+
+  for (let c = 20; c < cols - 20; c += 8) {
+    if (rng() > 0.12 * hazardDensity) continue;
+    const roll = rng();
+    const baseY = groundRow * TILE;
+
+    if (roll < 0.25) {
+      // Moving Platform
+      const startX = c * TILE;
+      const endX = startX + (4 + Math.floor(rng() * 6)) * TILE;
+      hazards.push({
+        ...HAZARD_TYPES.MOVING_PLATFORM,
+        x: startX, y: baseY - (3 + Math.floor(rng() * 4)) * TILE,
+        startX, endX, dir: 1, speed: 0.8 + rng() * 0.6,
+        phase: rng() * Math.PI * 2,
+      });
+    } else if (roll < 0.45) {
+      // Crusher
+      const cx = c * TILE;
+      hazards.push({
+        ...HAZARD_TYPES.CRUSHER,
+        x: cx, y: baseY - 8 * TILE,
+        restY: baseY - 8 * TILE, crushY: baseY - TILE - 16,
+        state: 'waiting', timer: Math.floor(rng() * 120), speed: 4,
+        waitTime: 90 + Math.floor(rng() * 60),
+      });
+    } else if (roll < 0.65) {
+      // Spike Trap
+      hazards.push({
+        ...HAZARD_TYPES.SPIKE_TRAP,
+        x: c * TILE, y: baseY - 10,
+        active: true, timer: 0, interval: 60 + Math.floor(rng() * 60),
+      });
+    } else if (roll < 0.82) {
+      // Conveyor Belt
+      hazards.push({
+        ...HAZARD_TYPES.CONVEYOR_BELT,
+        x: c * TILE, y: baseY - 8,
+        conveyorDir: rng() < 0.5 ? -1 : 1, conveyorSpeed: 1.5 + rng() * 1.5,
+        animPhase: 0,
+      });
+    } else {
+      // Laser Grid
+      const lx = c * TILE + TILE / 2;
+      hazards.push({
+        ...HAZARD_TYPES.LASER_GRID,
+        x: lx, y: baseY - 3 * TILE,
+        h: (2 + Math.floor(rng() * 3)) * TILE,
+        onTime: 80 + Math.floor(rng() * 60),
+        offTime: 40 + Math.floor(rng() * 40),
+        timer: Math.floor(rng() * 100), active: true,
+      });
+    }
+    c += 4; // spacing
+  }
+}
+
+function updateHazards() {
+  for (const h of hazards) {
+    switch (h.htype) {
+      case 'moving_platform':
+        h.phase += 0.015 * h.speed;
+        h.x = h.startX + (h.endX - h.startX) * 0.5 * (1 + Math.sin(h.phase));
+        break;
+      case 'crusher':
+        h.timer++;
+        if (h.state === 'waiting' && h.timer >= h.waitTime) {
+          h.state = 'crushing'; h.timer = 0;
+        } else if (h.state === 'crushing') {
+          h.y += h.speed;
+          if (h.y >= h.crushY) { h.y = h.crushY; h.state = 'holding'; h.timer = 0; triggerShake(4, 6); }
+        } else if (h.state === 'holding' && h.timer >= 30) {
+          h.state = 'retracting'; h.timer = 0;
+        } else if (h.state === 'retracting') {
+          h.y -= h.speed * 0.5;
+          if (h.y <= h.restY) { h.y = h.restY; h.state = 'waiting'; h.timer = 0; }
+        }
+        break;
+      case 'spike_trap':
+        h.timer++;
+        if (h.timer >= h.interval) { h.active = !h.active; h.timer = 0; }
+        break;
+      case 'conveyor':
+        h.animPhase += h.conveyorSpeed * h.conveyorDir * 0.05;
+        break;
+      case 'laser_grid':
+        h.timer++;
+        const cycleLen = h.onTime + h.offTime;
+        const inCycle = h.timer % cycleLen;
+        h.active = inCycle < h.onTime;
+        break;
+    }
+  }
+}
+
+function checkHazardCollisions(p) {
+  if (p.dead || p.invincible > 0 || godMode) return;
+  for (const h of hazards) {
+    if (h.x + h.w < camX - 100 || h.x > camX + viewW() + 100) continue;
+    switch (h.htype) {
+      case 'moving_platform':
+        // Player lands on platform
+        if (p.vy >= 0 && p.x + p.w > h.x && p.x < h.x + h.w &&
+            p.y + p.h >= h.y && p.y + p.h <= h.y + h.h + 6) {
+          p.y = h.y - p.h;
+          p.vy = 0;
+          p.onGround = true;
+          // Move player with platform
+          const prevX = h.startX + (h.endX - h.startX) * 0.5 * (1 + Math.sin(h.phase - 0.015 * h.speed));
+          p.x += (h.x - prevX);
+        }
+        break;
+      case 'crusher':
+        if (h.state === 'crushing' || h.state === 'holding') {
+          if (rectCollide(p, h)) killPlayer(p);
+        }
+        break;
+      case 'spike_trap':
+        if (h.active && rectCollide(p, { x: h.x, y: h.y, w: h.w, h: h.h })) {
+          killPlayer(p);
+        }
+        break;
+      case 'conveyor':
+        // Push player if standing on it
+        if (p.onGround && p.x + p.w > h.x && p.x < h.x + h.w &&
+            Math.abs((p.y + p.h) - h.y) < 10) {
+          p.x += h.conveyorDir * h.conveyorSpeed * 0.5;
+        }
+        break;
+      case 'laser_grid':
+        if (h.active && rectCollide(p, h)) killPlayer(p);
+        break;
+    }
+  }
+}
+
+function drawHazards() {
+  for (const h of hazards) {
+    if (h.x + h.w < camX - 50 || h.x > camX + viewW() + 50) continue;
+    const sx = h.x - camX;
+    switch (h.htype) {
+      case 'moving_platform': {
+        ctx.fillStyle = h.color;
+        ctx.fillRect(sx, h.y, h.w, h.h);
+        // Rivets
+        ctx.fillStyle = '#99aabb';
+        for (let rx = 4; rx < h.w - 4; rx += 12) {
+          ctx.fillRect(sx + rx, h.y + 3, 4, 4);
+        }
+        // Rail indicators
+        ctx.strokeStyle = 'rgba(100,120,140,0.3)';
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(h.startX - camX, h.y + h.h / 2);
+        ctx.lineTo(h.endX + h.w - camX, h.y + h.h / 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        break;
+      }
+      case 'crusher': {
+        ctx.fillStyle = h.color;
+        ctx.fillRect(sx, h.y, h.w, h.h);
+        // Warning stripes
+        ctx.fillStyle = '#ffcc00';
+        for (let s = 0; s < h.w; s += 12) {
+          ctx.fillRect(sx + s, h.y + h.h - 4, 6, 4);
+        }
+        // Teeth at bottom
+        ctx.fillStyle = '#882222';
+        for (let t = 0; t < h.w; t += 10) {
+          ctx.beginPath();
+          ctx.moveTo(sx + t, h.y + h.h);
+          ctx.lineTo(sx + t + 5, h.y + h.h + 8);
+          ctx.lineTo(sx + t + 10, h.y + h.h);
+          ctx.fill();
+        }
+        break;
+      }
+      case 'spike_trap': {
+        if (!h.active) {
+          ctx.fillStyle = '#553322';
+          ctx.fillRect(sx, h.y + 6, h.w, 4);
+          break;
+        }
+        ctx.fillStyle = h.color;
+        // Draw spikes
+        for (let s = 0; s < h.w; s += 8) {
+          ctx.beginPath();
+          ctx.moveTo(sx + s, h.y + h.h);
+          ctx.lineTo(sx + s + 4, h.y);
+          ctx.lineTo(sx + s + 8, h.y + h.h);
+          ctx.fill();
+        }
+        break;
+      }
+      case 'conveyor': {
+        ctx.fillStyle = h.color;
+        ctx.fillRect(sx, h.y, h.w, h.h);
+        // Animated arrows
+        ctx.fillStyle = '#bbbb88';
+        const arrowChar = h.conveyorDir > 0 ? '►' : '◄';
+        ctx.font = '6px sans-serif';
+        const phase = (h.animPhase % 1 + 1) % 1;
+        for (let a = -1; a < h.w / 16 + 1; a++) {
+          const ax = sx + (a + phase) * 16;
+          if (ax >= sx && ax <= sx + h.w - 8) ctx.fillText(arrowChar, ax, h.y + 7);
+        }
+        break;
+      }
+      case 'laser_grid': {
+        if (!h.active) {
+          // Dim offline laser
+          ctx.globalAlpha = 0.15;
+          ctx.fillStyle = '#ff2244';
+          ctx.fillRect(sx - 1, h.y, 3, h.h);
+          ctx.globalAlpha = 1;
+          break;
+        }
+        // Active laser beam
+        const pulse = 0.6 + Math.sin(Date.now() * 0.02) * 0.4;
+        ctx.globalAlpha = 0.3 * pulse;
+        ctx.fillStyle = '#ff4466';
+        ctx.fillRect(sx - 6, h.y, 14, h.h);
+        ctx.globalAlpha = 0.6 * pulse;
+        ctx.fillStyle = '#ff2244';
+        ctx.fillRect(sx - 2, h.y, 6, h.h);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#ff6688';
+        ctx.fillRect(sx, h.y, 2, h.h);
+        // Emitter nodes
+        ctx.fillStyle = '#cc2244';
+        ctx.fillRect(sx - 4, h.y - 4, 10, 6);
+        ctx.fillRect(sx - 4, h.y + h.h - 2, 10, 6);
+        break;
+      }
+    }
+  }
+}
+
+// ============================================================
+//  WEAPON FUSION SYSTEM
+// ============================================================
+let fusionHeldWeapon = null; // tracks the first weapon for fusion
+let fusionTimer = 0; // countdown to fusion window expiry
+const FUSION_WINDOW = 300; // frames (5 seconds) to pick up second weapon
+
+const WEAPON_FUSIONS = {
+  'SPREAD+LASER':     { name: 'PRISM BURST',  fireRate: 10, damage: 4, bullets: 5, spread: 0.35, color: '#00ffcc', size: 5, type: 'pierce',    desc: 'Piercing fan of lasers' },
+  'SPREAD+MACHINE':   { name: 'STORM',        fireRate: 4,  damage: 2, bullets: 3, spread: 0.4,  color: '#ffaa44', size: 3, type: 'normal',     desc: 'Rapid triple spray' },
+  'LASER+FLAME':      { name: 'PLASMA BEAM',  fireRate: 3,  damage: 5, bullets: 1, spread: 0,    color: '#88ffff', size: 7, type: 'pierce',     desc: 'Continuous plasma pierce' },
+  'MACHINE+ROCKET':   { name: 'GATLING RPG',  fireRate: 8,  damage: 8, bullets: 1, spread: 0.15, color: '#ff4400', size: 6, type: 'rocket',     desc: 'Rapid rockets' },
+  'FLAME+SPREAD':     { name: 'INFERNO FAN',  fireRate: 5,  damage: 3, bullets: 5, spread: 0.3,  color: '#ff8800', size: 4, type: 'flame',      desc: 'Flame in all directions' },
+  'HOMING+LIGHTNING': { name: 'THUNDERSTORM', fireRate: 12, damage: 6, bullets: 3, spread: 0.2,  color: '#aaffff', size: 4, type: 'lightning',   desc: 'Homing lightning bolts' },
+  'ROCKET+HOMING':    { name: 'SMART MISSILE',fireRate: 20, damage: 15,bullets: 1, spread: 0,    color: '#ff66aa', size: 8, type: 'homing',      desc: 'Heavy homing rocket' },
+  'WAVE+BOOMERANG':   { name: 'VORTEX',       fireRate: 14, damage: 4, bullets: 2, spread: 0.5,  color: '#44ffaa', size: 5, type: 'wave',        desc: 'Returning wave projectiles' },
+  'BLACKHOLE+MINE':   { name: 'SINGULARITY',  fireRate: 40, damage: 20,bullets: 1, spread: 0,    color: '#8800ff', size: 10,type: 'blackhole',   desc: 'Massive gravity trap' },
+  'LIGHTNING+WAVE':   { name: 'TESLA WAVE',   fireRate: 10, damage: 5, bullets: 2, spread: 0.3,  color: '#ccffaa', size: 5, type: 'lightning',   desc: 'Shocking sine wave' },
+  'MACHINE+FLAME':    { name: 'NAPALM SPRAY', fireRate: 3,  damage: 3, bullets: 2, spread: 0.25, color: '#ff6622', size: 4, type: 'flame',      desc: 'Rapid fire napalm' },
+  'ROCKET+SPREAD':    { name: 'CLUSTER BOMB', fireRate: 25, damage: 6, bullets: 5, spread: 0.5,  color: '#ff2200', size: 5, type: 'rocket',     desc: 'Explosive spread rockets' },
+};
+
+function getFusionKey(w1, w2) {
+  // Try both orderings
+  const k1 = w1 + '+' + w2;
+  const k2 = w2 + '+' + w1;
+  if (WEAPON_FUSIONS[k1]) return k1;
+  if (WEAPON_FUSIONS[k2]) return k2;
+  return null;
+}
+
+function tryWeaponFusion(p, newWeaponName) {
+  if (newWeaponName === 'RIFLE') return false; // Can't fuse with default
+
+  if (fusionHeldWeapon && fusionTimer > 0 && fusionHeldWeapon !== newWeaponName) {
+    const key = getFusionKey(fusionHeldWeapon, newWeaponName);
+    if (key) {
+      const fusion = WEAPON_FUSIONS[key];
+      p.weapon = { ...fusion, isFusion: true };
+      const cx = p.x + p.w / 2;
+      const cy = p.y + p.h / 2;
+      spawnPopup(cx, cy - 30, 'FUSION: ' + fusion.name + '!', '#ffaa00', 14);
+      spawnParticles(cx, cy, '#ffaa00', 40, 6, 40);
+      spawnGlowParticles(cx, cy, fusion.color, 20, 5, 50);
+      spawnRing(cx, cy, '#ffaa00', 50, 16);
+      spawnRing(cx, cy, fusion.color, 35, 12);
+      addLight(cx, cy, 120, 'rgba(255,170,0,0.6)', 0.7, 20);
+      triggerShake(8, 12);
+      triggerFreeze(8);
+      triggerFlash('#ffaa00', 0.4);
+      playSound('powerup');
+      fusionHeldWeapon = null;
+      fusionTimer = 0;
+      return true;
+    }
+  }
+
+  // No fusion available — store this weapon and start the fusion window
+  fusionHeldWeapon = newWeaponName;
+  fusionTimer = FUSION_WINDOW;
+  return false;
+}
+
+function updateFusionTimer() {
+  if (fusionTimer > 0) {
+    fusionTimer--;
+    if (fusionTimer <= 0) fusionHeldWeapon = null;
+  }
+}
+
+// ============================================================
+//  SPEEDRUN TIMER WITH SPLITS
+// ============================================================
+let speedrunEnabled = false;
+let speedrunTimer = 0; // total frames elapsed
+let speedrunSplits = []; // { stage, time (seconds) } for current run
+let speedrunPB = []; // personal best splits loaded from localStorage
+let speedrunSplitDelta = null; // { delta, positive } for HUD display
+let speedrunDeltaTimer = 0; // frames to show delta
+
+function initSpeedrun() {
+  speedrunTimer = 0;
+  speedrunSplits = [];
+  speedrunSplitDelta = null;
+  speedrunDeltaTimer = 0;
+  loadSpeedrunPB();
+}
+
+function loadSpeedrunPB() {
+  try {
+    const d = localStorage.getItem('contraForce_speedrunPB');
+    if (d) speedrunPB = JSON.parse(d);
+  } catch(e) {}
+}
+
+function saveSpeedrunPB() {
+  try {
+    localStorage.setItem('contraForce_speedrunPB', JSON.stringify(speedrunPB));
+  } catch(e) {}
+}
+
+function updateSpeedrun() {
+  if (!speedrunEnabled || (gameState !== 'playing')) return;
+  speedrunTimer++;
+  if (speedrunDeltaTimer > 0) speedrunDeltaTimer--;
+}
+
+function onSpeedrunStageClear(stageNum) {
+  if (!speedrunEnabled) return;
+  const timeS = speedrunTimer / 60;
+  speedrunSplits.push({ stage: stageNum, time: timeS });
+
+  // Compare to PB
+  const pbSplit = speedrunPB.find(s => s.stage === stageNum);
+  if (pbSplit) {
+    const delta = timeS - pbSplit.time;
+    speedrunSplitDelta = { delta, positive: delta > 0 };
+    speedrunDeltaTimer = 180; // 3 seconds
+  } else {
+    speedrunSplitDelta = { delta: 0, positive: false, isNew: true };
+    speedrunDeltaTimer = 180;
+  }
+
+  // Update PB if better
+  if (!pbSplit || timeS < pbSplit.time) {
+    const idx = speedrunPB.findIndex(s => s.stage === stageNum);
+    if (idx >= 0) speedrunPB[idx].time = timeS;
+    else speedrunPB.push({ stage: stageNum, time: timeS });
+    saveSpeedrunPB();
+  }
+}
+
+function formatSpeedrunTime(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return m.toString().padStart(2, '0') + ':' + s.toFixed(2).padStart(5, '0');
+}
+
+function drawSpeedrunHUD() {
+  if (!speedrunEnabled || gameState !== 'playing') return;
+  const timeS = speedrunTimer / 60;
+
+  // Main timer - top center
+  ctx.save();
+  ctx.font = '10px "Press Start 2P"';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#44ff88';
+  ctx.fillText(formatSpeedrunTime(timeS), GAME_W / 2, 16);
+
+  // Current stage label
+  ctx.font = '6px "Press Start 2P"';
+  ctx.fillStyle = '#88aa88';
+  ctx.fillText('STAGE ' + stage, GAME_W / 2, 26);
+
+  // Split delta display
+  if (speedrunDeltaTimer > 0 && speedrunSplitDelta) {
+    const alpha = Math.min(1, speedrunDeltaTimer / 30);
+    ctx.globalAlpha = alpha;
+    if (speedrunSplitDelta.isNew) {
+      ctx.fillStyle = '#aaaaaa';
+      ctx.fillText('NEW SPLIT', GAME_W / 2, 36);
+    } else {
+      const d = speedrunSplitDelta.delta;
+      const sign = d >= 0 ? '+' : '';
+      ctx.fillStyle = d >= 0 ? '#ff4444' : '#44ff44';
+      ctx.font = '8px "Press Start 2P"';
+      ctx.fillText(sign + d.toFixed(2) + 's', GAME_W / 2, 36);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Split history - right side
+  ctx.textAlign = 'right';
+  ctx.font = '6px "Press Start 2P"';
+  const visibleSplits = speedrunSplits.slice(-5);
+  for (let i = 0; i < visibleSplits.length; i++) {
+    const sp = visibleSplits[i];
+    const pb = speedrunPB.find(s => s.stage === sp.stage);
+    const y = 50 + i * 12;
+    ctx.fillStyle = '#668866';
+    ctx.fillText('S' + sp.stage + ': ' + formatSpeedrunTime(sp.time), GAME_W - 8, y);
+    if (pb) {
+      const d = sp.time - pb.time;
+      ctx.fillStyle = d <= 0 ? '#44ff44' : '#ff4444';
+      const sign = d >= 0 ? '+' : '';
+      ctx.fillText(sign + d.toFixed(1) + 's', GAME_W - 8, y + 8);
+    }
+  }
+  ctx.textAlign = 'left';
+  ctx.restore();
+}
+
+// ============================================================
+//  ACCESSIBILITY OPTIONS
+// ============================================================
+let accessColorBlindMode = 'none'; // 'none', 'protanopia', 'deuteranopia', 'tritanopia'
+let accessAimAssist = false;
+let accessAimAssistStrength = 0.3; // 0-1
+let accessInfiniteLives = false;
+let accessEnemySpeedMult = 1.0;
+let accessBulletTimeMult = 1.0; // slows enemy bullets
+let accessHighContrastHUD = false;
+let accessLargeHUD = false;
+let accessScreenShakeReduced = false;
+
+// Color-blind filter matrices (simplified LMS simulation)
+const COLOR_BLIND_FILTERS = {
+  none: null,
+  protanopia:   [0.567, 0.433, 0, 0.558, 0.442, 0, 0, 0.242, 0.758],
+  deuteranopia: [0.625, 0.375, 0, 0.7, 0.3, 0, 0, 0.3, 0.7],
+  tritanopia:   [0.95, 0.05, 0, 0, 0.433, 0.567, 0, 0.475, 0.525],
+};
+
+function applyColorBlindFilter() {
+  if (accessColorBlindMode === 'none') return;
+  const filter = COLOR_BLIND_FILTERS[accessColorBlindMode];
+  if (!filter) return;
+
+  const imageData = ctx.getImageData(0, 0, GAME_W, GAME_H);
+  const d = imageData.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i], g = d[i+1], b = d[i+2];
+    d[i]   = Math.min(255, r * filter[0] + g * filter[1] + b * filter[2]);
+    d[i+1] = Math.min(255, r * filter[3] + g * filter[4] + b * filter[5]);
+    d[i+2] = Math.min(255, r * filter[6] + g * filter[7] + b * filter[8]);
+  }
+  ctx.putImageData(imageData, 0, 0);
+}
+
+function getAimAssistTarget(p) {
+  if (!accessAimAssist || !p || p.dead) return null;
+  let best = null, bestDist = 300;
+  for (const e of enemies) {
+    if (!e.active || e.hp <= 0) continue;
+    const dx = (e.x + e.w/2) - (p.x + p.w/2);
+    const dy = (e.y + e.h/2) - (p.y + p.h/2);
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist < bestDist) { bestDist = dist; best = e; }
+  }
+  return best;
+}
+
+function applyAimAssist(p) {
+  if (!accessAimAssist || !p || p.dead) return;
+  const target = getAimAssistTarget(p);
+  if (!target) return;
+  const dx = (target.x + target.w/2) - (p.x + p.w/2);
+  const dy = (target.y + target.h/2) - (p.y + p.h/2);
+  const len = Math.sqrt(dx*dx + dy*dy);
+  if (len < 1) return;
+  const tx = dx / len, ty = dy / len;
+  // Blend aim toward target
+  p.aimX = p.aimX * (1 - accessAimAssistStrength) + tx * accessAimAssistStrength;
+  p.aimY = p.aimY * (1 - accessAimAssistStrength) + ty * accessAimAssistStrength;
+  // Renormalize
+  const nl = Math.sqrt(p.aimX*p.aimX + p.aimY*p.aimY);
+  if (nl > 0) { p.aimX /= nl; p.aimY /= nl; }
+}
+
+function drawAimAssistIndicator(p) {
+  if (!accessAimAssist || !p || p.dead) return;
+  const target = getAimAssistTarget(p);
+  if (!target) return;
+  const sx = target.x + target.w/2 - camX;
+  const sy = target.y + target.h/2;
+  ctx.strokeStyle = '#ff4444';
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = 0.4 + Math.sin(Date.now() * 0.01) * 0.2;
+  ctx.beginPath();
+  ctx.arc(sx, sy, target.w * 0.8, 0, Math.PI * 2);
+  ctx.stroke();
+  // Crosshair lines
+  const cs = target.w * 0.6;
+  ctx.beginPath();
+  ctx.moveTo(sx - cs, sy); ctx.lineTo(sx + cs, sy);
+  ctx.moveTo(sx, sy - cs); ctx.lineTo(sx, sy + cs);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.lineWidth = 1;
+}
+
+function updateAccessibility() {
+  // Infinite lives
+  if (accessInfiniteLives && player && player.lives < 3) player.lives = 99;
+  // Reduced screen shake
+  if (accessScreenShakeReduced) {
+    shakeIntensity *= 0.3;
+  }
+}
+
+// ============================================================
+//  MINI-BOSS AI UPDATE
+// ============================================================
+function updateMiniBossAI(e) {
+  if (!e.isMiniBoss) return;
+  const p = player;
+  const dx = p.x - e.x;
+  const dist = Math.abs(dx);
+  e.facing = dx > 0 ? 1 : -1;
+  e.mbTimer = (e.mbTimer || 0) + 1;
+
+  switch (e.mbPattern) {
+    case 'charge': {
+      // Pause, then charge at player
+      if (e.mbState === 'idle') {
+        if (dist < e.shootRange && e.mbTimer > 60) {
+          e.mbState = 'charging';
+          e.mbTimer = 0;
+          e.speed = 5;
+        }
+      } else if (e.mbState === 'charging') {
+        e.x += e.facing * e.speed;
+        if (e.mbTimer > 40 || dist < 10) {
+          e.mbState = 'idle';
+          e.mbTimer = 0;
+          e.speed = 0;
+          triggerShake(3, 5);
+        }
+      }
+      break;
+    }
+    case 'shielded': {
+      // Shield blocks frontal hits, vulnerable from behind
+      e.shieldActive = (e.facing === -1 && p.x < e.x) || (e.facing === 1 && p.x > e.x);
+      if (e.shieldActive) e.damageMult = 0.2; else e.damageMult = 1;
+      // Slowly advance
+      e.x += e.facing * 0.3;
+      break;
+    }
+    case 'artillery': {
+      // Lob arcing projectiles
+      if (e.mbTimer % e.fireRate === 0 && dist < e.shootRange) {
+        const angle = Math.atan2(p.y - e.y, p.x - e.x);
+        enemyBullets.push({
+          x: e.x + e.w/2, y: e.y,
+          vx: Math.cos(angle) * 3,
+          vy: -5,
+          size: 5, color: '#aaff44', life: 120,
+          isArc: true, gravity: 0.12,
+        });
+      }
+      break;
+    }
+    case 'splitter': {
+      // Normal movement, splits on death (handled in death code)
+      e.x += e.facing * e.speed * 0.5;
+      break;
+    }
+    case 'jumpstomp': {
+      // Jump up and ground-pound
+      if (e.mbState !== 'jumping' && e.onGround && e.mbTimer > 80 && dist < 200) {
+        e.vy = -12;
+        e.mbState = 'jumping';
+        e.mbTimer = 0;
+      }
+      if (e.mbState === 'jumping' && e.onGround && e.mbTimer > 10) {
+        // Ground pound impact
+        triggerShake(6, 10);
+        spawnParticles(e.x + e.w/2, e.y + e.h, '#ddaa44', 15, 4, 25);
+        spawnRing(e.x + e.w/2, e.y + e.h, '#ddaa44', 30, 10);
+        e.mbState = 'idle';
+        e.mbTimer = 0;
+        // Damage player if nearby
+        if (dist < 60 && Math.abs(p.y - e.y) < 40) killPlayer(p);
+      }
+      break;
+    }
+  }
+
+  // Regular shooting for non-charge/jumpstomp mini-bosses
+  if (e.mbPattern !== 'charge' && e.mbPattern !== 'jumpstomp' &&
+      e.fireRate > 0 && dist < e.shootRange) {
+    e.fireTimer++;
+    if (e.fireTimer >= e.fireRate) {
+      e.fireTimer = 0;
+      const angle = Math.atan2(p.y + p.h/2 - (e.y + e.h/2), p.x + p.w/2 - (e.x + e.w/2));
+      const spd = (enemyBulletSpeed || 3) * (accessBulletTimeMult || 1);
+      enemyBullets.push({
+        x: e.x + e.w/2, y: e.y + e.h/2,
+        vx: Math.cos(angle) * spd, vy: Math.sin(angle) * spd,
+        size: 4, color: e.color, life: 120,
+      });
+    }
+  }
+}
+
 // --- STAGE THEMES ---
 const THEMES = {
   1: {
@@ -7760,6 +8525,8 @@ function initGame() {
   spawnDecorations(level, stage);
   spawnVehicles(level, stage);
   spawnSecretExits(level, stage);
+  spawnHazards(level, stage);
+  spawnMiniBosses(level, stage);
   bullets = [];
   enemyBullets = [];
   particles = [];
@@ -7773,6 +8540,8 @@ function initGame() {
   flashAlpha = 0;
   camX = 0;
   camY = 0;
+  fusionHeldWeapon = null;
+  fusionTimer = 0;
 
   // Place player on ground
   const col1 = Math.floor(player.x / TILE);
@@ -7833,9 +8602,16 @@ function update() {
   }
 
   updateEnemiesAndBullets();
+  updateHazards();
   updateParticles();
   updateCombo();
+  updateFusionTimer();
+  updateSpeedrun();
+  updateAccessibility();
   checkAchievements();
+  // Hazard collisions
+  if (player && !player.dead) checkHazardCollisions(player);
+  if (coopMode && player2 && !player2.dead) checkHazardCollisions(player2);
   // Mode-specific updates
   updateEndlessMode();
   updateTimeAttack();
@@ -8722,6 +9498,7 @@ function updatePlayer(p, getLeft, getRight, getUp, getDown, getJump, getJumpKey,
   p.shooting = getShoot();
   if (p.fireTimer > 0) p.fireTimer--;
   if (getShoot() && p.fireTimer <= 0) {
+    applyAimAssist(p);
     fireWeapon(p);
     p.fireTimer = p.weapon.fireRate;
   }
@@ -9098,6 +9875,8 @@ function updatePlayer(p, getLeft, getRight, getUp, getDown, getJump, getJumpKey,
           if (b.btype !== 'pierce') bullets.splice(i, 1);
           continue;
         }
+        // Mini-boss: shielded damage multiplier
+        if (e.isMiniBoss && e.damageMult !== undefined) dmg *= e.damageMult;
         e.hp -= dmg;
         spawnParticles(b.x, b.y, '#ffcc44', 6, 3, 12);
         spawnGlowParticles(b.x, b.y, '#ffffff', 2, 2, 10);
@@ -9173,6 +9952,37 @@ function updatePlayer(p, getLeft, getRight, getUp, getDown, getJump, getJumpKey,
           registerKill();
           spawnPopup(cx, cy - 10, '+' + Math.round(e.score * diffSettings.scoreMult), '#ffff00', 12);
 
+          // Mini-boss: splitter spawns 2 small enemies on death
+          if (e.isMiniBoss && e.mbPattern === 'splitter') {
+            for (let si = 0; si < 2; si++) {
+              enemies.push({
+                x: e.x + (si === 0 ? -20 : 20), y: e.y,
+                w: 16, h: 22, hp: 3, maxHp: 3,
+                speed: 2, score: 150, color: '#dd66dd',
+                fireRate: 60, fireTimer: 0, shootRange: 200,
+                active: true, facing: si === 0 ? -1 : 1,
+                etype: 'soldier', dir: si === 0 ? -1 : 1,
+                patrolStart: (e.x - 100), patrolEnd: (e.x + 100),
+                vy: -3, onGround: false, hitFlash: 0,
+              });
+            }
+            spawnPopup(cx, cy - 30, 'SPLIT!', '#dd66dd', 10);
+          }
+
+          // Mini-boss: enhanced death effects
+          if (e.isMiniBoss) {
+            playSound('boss');
+            triggerShake(12, 20);
+            triggerFreeze(8);
+            triggerFlash('#ff8844', 0.5);
+            spawnParticles(cx, cy, '#ff4400', 40, 7, 40);
+            spawnGlowParticles(cx, cy, '#ffaa00', 15, 5, 45);
+            spawnRing(cx, cy, '#ffaa00', 50, 14);
+            spawnDebris(cx, cy, e.color, 8);
+            addLight(cx, cy, 130, 'rgba(255,100,0,0.6)', 0.7, 20);
+            spawnPopup(cx, cy - 25, 'MINI-BOSS DOWN!', '#ffaa00', 14);
+          }
+
           if (e.isBoss) {
             runStats.bossKills++;
             playSound('boss');
@@ -9207,6 +10017,8 @@ function updatePlayer(p, getLeft, getRight, getUp, getDown, getJump, getJumpKey,
                 onTimeAttackStageClear(stage);
                 // Still advance stage normally
               }
+              // Speedrun split
+              onSpeedrunStageClear(stage);
               // Challenge: track no-hit boss
               if (gameMode === 'challenge' && activeChallenge === 'no_hit_boss') {
                 if (!challengeState.bossHitsTaken || challengeState.bossHitsTaken === 0) {
@@ -9327,13 +10139,22 @@ function updatePlayer(p, getLeft, getRight, getUp, getDown, getJump, getJumpKey,
         spawnPopup(cx, cy - 20, '+1 LIFE', '#ff4488', 12);
         triggerFlash('#ff4488', 0.3);
       } else {
-        p.weapon = WEAPONS[pw.type];
+        // Try weapon fusion first
+        const currentWepName = p.weapon ? p.weapon.name : 'RIFLE';
+        const fused = (currentWepName !== 'RIFLE' && currentWepName !== pw.type) ? tryWeaponFusion(p, pw.type) : false;
+        if (!fused) {
+          p.weapon = WEAPONS[pw.type];
+          // Start fusion window for this pickup
+          if (pw.type !== 'RIFLE') { fusionHeldWeapon = pw.type; fusionTimer = FUSION_WINDOW; }
+        }
         runStats.weaponsCollected.add(pw.type);
         if (gameMode === 'challenge') challengeState.weaponsUsed.add(pw.type);
         checkAchievements();
         const weaponNames = { SPREAD: 'SPREAD GUN!', LASER: 'LASER!', MACHINE: 'MACHINE GUN!', FLAME: 'FLAMETHROWER!', ROCKET: 'ROCKET!', HOMING: 'HOMING MISSILES!', WAVE: 'WAVE GUN!', LIGHTNING: 'LIGHTNING CHAIN!', BOOMERANG: 'BOOMERANG!', BLACKHOLE: 'BLACK HOLE!', MINE: 'MINE LAYER!' };
-        spawnPopup(cx, cy - 20, weaponNames[pw.type] || pw.type, '#44ffff', 12);
-        triggerFlash('#44ffff', 0.25);
+        if (!fused) {
+          spawnPopup(cx, cy - 20, weaponNames[pw.type] || pw.type, '#44ffff', 12);
+          triggerFlash('#44ffff', 0.25);
+        }
       }
       // Big sparkle burst
       triggerShake(4, 6);
@@ -9535,9 +10356,15 @@ function updateEnemiesAndBullets() {
     }
     } // end non-flying gravity
 
-    // Movement
-    if (e.speed > 0 && !e.isBoss) {
-      const nextX = e.x + e.speed * e.dir;
+    // Mini-boss AI
+    if (e.isMiniBoss) {
+      updateMiniBossAI(e);
+    }
+
+    // Movement (skip mini-bosses — they have their own movement)
+    if (e.speed > 0 && !e.isBoss && !e.isMiniBoss) {
+      const eSpd = e.speed * (accessEnemySpeedMult || 1);
+      const nextX = e.x + eSpd * e.dir;
 
       // Check wall collision ahead
       const checkWallX = e.dir > 0 ? nextX + e.w : nextX;
@@ -9762,13 +10589,16 @@ function updateEnemiesAndBullets() {
   // Update enemy bullets
   for (let i = enemyBullets.length - 1; i >= 0; i--) {
     const b = enemyBullets[i];
+    // Arc projectile gravity (artillery mini-boss)
+    if (b.isArc) b.vy += (b.gravity || 0.12);
     // Bomb gravity
     if (b.isBomb) {
       b.vy += 0.15;
       if (Math.random() < 0.2) spawnParticles(b.x, b.y, '#ff8844', 1, 1, 6);
     }
-    b.x += b.vx;
-    b.y += b.vy;
+    const btMult = accessBulletTimeMult || 1;
+    b.x += b.vx * btMult;
+    b.y += b.vy * btMult;
     b.life--;
     const hitWall = tileAt(level, b.x, b.y);
     if (b.life <= 0 || hitWall || b.x < camX - 50 || b.x > camX + viewW() + 50) {
@@ -10253,6 +11083,9 @@ function draw() {
     }
   }
 
+  // Draw hazards
+  drawHazards();
+
   // Draw enemies
   for (const e of enemies) {
     if (!e.active) continue;
@@ -10261,6 +11094,29 @@ function draw() {
     if (e.etype === 'cloaker') ctx.globalAlpha = e.cloakAlpha || 1;
     if (useSprites) drawEnemySprite(e); else drawEnemy(e);
     if (e.etype === 'cloaker') ctx.globalAlpha = 1;
+    // Mini-boss: draw health bar + name
+    if (e.isMiniBoss) {
+      const bx = e.x - camX;
+      const barW = e.w + 10;
+      const barH = 4;
+      const by = e.y - 14;
+      ctx.fillStyle = '#333';
+      ctx.fillRect(bx - 5, by, barW, barH);
+      ctx.fillStyle = '#ff4444';
+      ctx.fillRect(bx - 5, by, barW * (e.hp / e.maxHp), barH);
+      ctx.fillStyle = '#ffcc00';
+      ctx.font = '6px "Press Start 2P"';
+      ctx.textAlign = 'center';
+      ctx.fillText('MINI-BOSS', bx + e.w / 2, by - 3);
+      ctx.textAlign = 'left';
+      // Shield indicator for shielded type
+      if (e.mbPattern === 'shielded' && e.shieldActive) {
+        ctx.globalAlpha = 0.3;
+        ctx.fillStyle = '#4488ff';
+        ctx.fillRect(bx + (e.facing > 0 ? e.w - 4 : -4), e.y, 8, e.h);
+        ctx.globalAlpha = 1;
+      }
+    }
     // Hit flash
     if (e.hitFlash > 0) {
       ctx.globalAlpha = 0.4;
@@ -10955,8 +11811,11 @@ function draw() {
   }
   const weaponText = player.inVehicle
     ? VEHICLES[player.vehicleType].name + ' [' + player.vehicleHP + '/' + player.vehicleMaxHP + ']'
-    : (player.charId && player.charId !== 'COMMANDO' ? player.charId + ': ' : '') + player.weapon.name;
-  document.getElementById('weaponDisplay').textContent = weaponText
+    : (player.charId && player.charId !== 'COMMANDO' ? player.charId + ': ' : '') + player.weapon.name + (player.weapon.isFusion ? ' ⚡' : '');
+  document.getElementById('weaponDisplay').textContent = weaponText;
+  // Large HUD accessibility option
+  const hudEl = document.getElementById('hud');
+  if (hudEl) hudEl.style.fontSize = accessLargeHUD ? '14px' : '';
 
   drawParticles(camX);
   drawPopups(camX);
@@ -11138,8 +11997,43 @@ function draw() {
     }
   }
 
+  // Aim assist indicator (in world space, before restore)
+  if (accessAimAssist && player && !player.dead) drawAimAssistIndicator(player);
+  if (accessAimAssist && coopMode && player2 && !player2.dead) drawAimAssistIndicator(player2);
+
   // Screen transition overlay (wipe/fade/circle)
   drawTransition();
+
+  // Speedrun timer HUD (drawn over everything, in screen space)
+  drawSpeedrunHUD();
+
+  // Fusion indicator HUD
+  if (fusionTimer > 0 && fusionHeldWeapon) {
+    ctx.save();
+    ctx.font = '7px "Press Start 2P"';
+    ctx.textAlign = 'left';
+    const alpha = Math.min(1, fusionTimer / 30);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#ffaa00';
+    ctx.fillText('FUSION: ' + fusionHeldWeapon + ' + ?', 8, GAME_H - 30);
+    // Timer bar
+    ctx.fillStyle = '#553300';
+    ctx.fillRect(8, GAME_H - 22, 80, 4);
+    ctx.fillStyle = '#ffaa00';
+    ctx.fillRect(8, GAME_H - 22, 80 * (fusionTimer / FUSION_WINDOW), 4);
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // High contrast HUD overlay
+  if (accessHighContrastHUD) {
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillRect(0, 0, GAME_W, 20);
+    ctx.fillRect(0, GAME_H - 14, GAME_W, 14);
+  }
+
+  // Color-blind filter (post-process, before CRT)
+  applyColorBlindFilter();
 
   // CRT post-processing (must be last)
   applyCRTEffect();
@@ -12313,6 +13207,16 @@ const sliderBindings = [
   { id: 's_brushSize',       get: () => brushSize,        set: v => brushSize = Math.round(v) },
 ];
 
+function showFusionList() {
+  const el = document.getElementById('fusionListAdmin');
+  if (!el) return;
+  let html = '';
+  for (const [key, f] of Object.entries(WEAPON_FUSIONS)) {
+    html += `<div style="margin:2px 0"><span style="color:${f.color}">■</span> <b>${key}</b> → <span style="color:#ffaa00">${f.name}</span> — ${f.desc}</div>`;
+  }
+  el.innerHTML = html;
+}
+
 function syncAdminPanel() {
   for (const b of sliderBindings) {
     const el = document.getElementById(b.id);
@@ -12337,6 +13241,28 @@ function syncAdminPanel() {
   const touchOpEl = document.getElementById('s_touchOpacity');
   if (touchOpEl) { touchOpEl.value = Math.round(touchOpacity * 100); const v = document.getElementById('v_touchOpacity'); if(v) v.textContent = Math.round(touchOpacity*100); }
   const touchSwEl = document.getElementById('s_touchSwap');
+
+  // Accessibility sync
+  const cbEl = document.getElementById('s_colorBlind');
+  if (cbEl) cbEl.value = accessColorBlindMode;
+  const aaEl = document.getElementById('s_aimAssist');
+  if (aaEl) aaEl.checked = accessAimAssist;
+  const ilEl = document.getElementById('s_infLives');
+  if (ilEl) ilEl.checked = accessInfiniteLives;
+  const hcEl = document.getElementById('s_highContrast');
+  if (hcEl) hcEl.checked = accessHighContrastHUD;
+  const lhEl = document.getElementById('s_largeHUD');
+  if (lhEl) lhEl.checked = accessLargeHUD;
+  const rsEl = document.getElementById('s_reduceShake');
+  if (rsEl) rsEl.checked = accessScreenShakeReduced;
+  // Speedrun sync
+  const srEl = document.getElementById('s_speedrun');
+  if (srEl) srEl.checked = speedrunEnabled;
+  // Update PB list display
+  const pbList = document.getElementById('speedrunPBList');
+  if (pbList && speedrunPB.length > 0) {
+    pbList.innerHTML = speedrunPB.map(s => `S${s.stage}: ${formatSpeedrunTime(s.time)}`).join('<br>');
+  }
   if (touchSwEl) touchSwEl.checked = touchSwapped;
   const touchVibEl = document.getElementById('s_touchVibrate');
   if (touchVibEl) touchVibEl.checked = touchVibrate;
